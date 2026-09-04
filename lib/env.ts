@@ -8,16 +8,12 @@ const LOCAL_DEV_DB = "postgres://postgres:postgres@127.0.0.1:55432/graduation_pa
 export function getDatabaseUrl(): string {
   const url = process.env.DATABASE_URL;
   if (url) return url;
-  if (!isProduction()) {
-    // Convenience default matching `npm run db:start` (embedded PostgreSQL).
-    return LOCAL_DEV_DB;
-  }
+  if (!isProduction()) return LOCAL_DEV_DB;
   throw new Error(
     "DATABASE_URL is not set. Copy `.env.example` to `.env.local` and configure PostgreSQL (see README).",
   );
 }
 
-/** Direct (non-pooled) URL used by migrations and long-running scripts. */
 export function getDirectDatabaseUrl(): string {
   return process.env.DIRECT_URL || getDatabaseUrl();
 }
@@ -36,8 +32,12 @@ export function getStorageProvider(): StorageProviderName {
   const configured = (process.env.STORAGE_PROVIDER ?? "").toLowerCase();
   if (configured === "blob") return "blob";
   if (configured === "disk") return "disk";
-  // Auto-detect: prefer Vercel Blob when a token is present, else disk (dev/test).
-  return process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "disk";
+
+  // Vercel production must never silently fall back to ephemeral local disk.
+  // Blob is selected automatically when its token is available.
+  if (process.env.BLOB_READ_WRITE_TOKEN) return "blob";
+  if (isProduction()) return "blob";
+  return "disk";
 }
 
 export function getBlobToken(): string {
@@ -50,8 +50,6 @@ export function getAiProvider(): AiProviderName {
   const configured = (process.env.AI_PROVIDER ?? "").toLowerCase();
   if (configured === "openai") return "openai";
   if (configured === "offline") return "offline";
-  // Sensible default: OpenAI when a key is configured, otherwise the offline
-  // development generator so the app is fully usable without external services.
   return process.env.AI_API_KEY ? "openai" : "offline";
 }
 
