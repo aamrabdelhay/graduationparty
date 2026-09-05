@@ -26,21 +26,22 @@ export function getAppBaseUrl(): string {
   return process.env.APP_BASE_URL ?? "";
 }
 
-export type StorageProviderName = "blob" | "disk";
+export type StorageProviderName = "blob" | "disk" | "database";
 
 export function getStorageProvider(): StorageProviderName {
   const configured = (process.env.STORAGE_PROVIDER ?? "").toLowerCase();
 
-  // Vercel production must always use durable object storage. If a stale
-  // STORAGE_PROVIDER=disk variable exists, never allow uploads to land on the
-  // ephemeral serverless filesystem when a Blob token is available.
+  // Prefer Vercel Blob in production when the integration token is available.
+  // If the project has not been connected to Blob yet, use the durable Neon
+  // database fallback instead of the ephemeral serverless filesystem.
   if (isProduction()) {
     if (process.env.BLOB_READ_WRITE_TOKEN) return "blob";
-    if (configured === "blob") return "blob";
-    return "blob";
+    if (configured === "blob" && process.env.BLOB_READ_WRITE_TOKEN) return "blob";
+    return "database";
   }
 
-  if (configured === "blob") return "blob";
+  if (configured === "blob" && process.env.BLOB_READ_WRITE_TOKEN) return "blob";
+  if (configured === "database") return "database";
   if (configured === "disk") return "disk";
   if (process.env.BLOB_READ_WRITE_TOKEN) return "blob";
   return "disk";
