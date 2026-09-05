@@ -30,13 +30,19 @@ export type StorageProviderName = "blob" | "disk";
 
 export function getStorageProvider(): StorageProviderName {
   const configured = (process.env.STORAGE_PROVIDER ?? "").toLowerCase();
+
+  // Vercel production must always use durable object storage. If a stale
+  // STORAGE_PROVIDER=disk variable exists, never allow uploads to land on the
+  // ephemeral serverless filesystem when a Blob token is available.
+  if (isProduction()) {
+    if (process.env.BLOB_READ_WRITE_TOKEN) return "blob";
+    if (configured === "blob") return "blob";
+    return "blob";
+  }
+
   if (configured === "blob") return "blob";
   if (configured === "disk") return "disk";
-
-  // Vercel production must never silently fall back to ephemeral local disk.
-  // Blob is selected automatically when its token is available.
   if (process.env.BLOB_READ_WRITE_TOKEN) return "blob";
-  if (isProduction()) return "blob";
   return "disk";
 }
 
