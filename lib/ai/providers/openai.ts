@@ -1,4 +1,5 @@
-/** OpenAI Images provider for editing an adult photo into a graduation photo. */
+/** OpenAI image-edit provider for realistic graduation-cap edits. */
+import sharp from "sharp";
 import { getAiApiKey, getAiImageSize, getAiModel } from "@/lib/env";
 import { getStorage } from "@/lib/storage";
 import { logger } from "@/lib/logger";
@@ -25,7 +26,6 @@ export class OpenAIProvider implements CapGenerator {
 
   async generate(input: CapGenerationInput): Promise<CapGenerationResult> {
     const key = getAiApiKey();
-    // gpt-image-2 is the current image edit model. Keep an explicit env override for compatibility.
     const model = getAiModel() || "gpt-image-2";
     const size = getAiImageSize();
     const prompt = buildCapPrompt(input.adultAsset);
@@ -37,19 +37,31 @@ export class OpenAIProvider implements CapGenerator {
       throw new CapGenerationError("Could not read the original adult photo. Please upload it again.", { cause: err });
     }
 
+    // Keep the input compact so the edit request starts quickly while preserving
+    // enough resolution for a clean face/cap edit. The original asset remains untouched.
+    let editBuffer: Buffer;
+    try {
+      editBuffer = await sharp(original)
+        .rotate()
+        .resize({ width: 1536, height: 1536, fit: "inside", withoutEnlargement: true })
+        .jpeg({ quality: 90, mozjpeg: true })
+        .toBuffer();
+    } catch (err) {
+      throw new CapGenerationError("تعذر تجهيز صورة التخرج للذكاء الاصطناعي.", { cause: err });
+    }
+
     const form = new FormData();
     form.append("model", model);
     form.append("prompt", prompt);
     form.append("size", size);
-    form.append("quality", process.env.AI_QUALITY ?? "medium");
+    // Medium is the best speed/quality balance for a live graduation workflow.
+    form.append("quality", process.env.AI_QUALITY || "medium");
     form.append("output_format", "png");
     form.append("n", "1");
-    const extension = extensionFromMimeType(input.adultAsset.mimeType);
-    // The Image API edits endpoint accepts the input image as image[].
-    form.append("image[]", new Blob([new Uint8Array(original)], { type: input.adultAsset.mimeType }), `adult-photo.${extension}`);
+    form.append("image[]", new Blob([new Uint8Array(editBuffer)], { type: "image/jpeg" }), "adult-photo.jpg");
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 120_000);
+    const timer = setTimeout(() => controller.abort(), 90_000);
     let res: Response;
     try {
       res = await fetch(API_URL, {
@@ -59,8 +71,8 @@ export class OpenAIProvider implements CapGenerator {
         signal: controller.signal,
       });
     } catch (err) {
-      if (controller.signal.aborted) throw new CapGenerationError("The AI service timed out. Please retry.", { cause: err });
-      throw new CapGenerationError("Could not reach the AI image service. Please retry.", { cause: err });
+      if (controller.signal.aborted) throw new CapGenerationError("خدمة إنشاء الصورة استغرقت وقتًا أطول من المتوقع. سيتم استخدام البديل السريع.", { cause: err });
+      throw new CapGenerationError("تعذر الوصول إلى خدمة إنشاء الصورة. سيتم استخدام البديل السريع.", { cause: err });
     } finally {
       clearTimeout(timer);
     }
@@ -75,18 +87,18 @@ export class OpenAIProvider implements CapGenerator {
       } catch {}
       logger.error("openai cap generation failed", { status: res.status, code, detail: detail.slice(0, 300) });
       const message = res.status === 401
-        ? "فشل التحقق من خدمة الذكاء الاصطناعي. راجع AI_API_KEY."
+        ? "فشل التحقق من خدمة الذكاء الاصطناعي. راجع مفتاح الخدمة."
         : res.status === 429
-          ? "خدمة الذكاء الاصطناعي مشغولة حاليًا. حاول مرة أخرى بعد قليل."
+          ? "خدمة الذكاء الاصطناعي مشغولة حاليًا. سيتم استخدام البديل السريع."
           : detail
             ? `فشل إنشاء صورة التخرج: ${detail.slice(0, 220)}`
-            : "فشل إنشاء صورة التخرج. حاول مرة أخرى.";
+            : "فشل إنشاء صورة التخرج. سيتم استخدام البديل السريع.";
       throw new CapGenerationError(message);
     }
 
     const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
     const b64 = json.data?.[0]?.b64_json;
-    if (!b64) throw new CapGenerationError("لم تُرجع خدمة الذكاء الاصطناعي صورة. حاول مرة أخرى.");
+    if (!b64) throw new CapGenerationError("لم تُرجع خدمة الذكاء الاصطناعي صورة. سيتم استخدام البديل السريع.");
     return { buffer: Buffer.from(b64, "base64"), mimeType: "image/png", extension: "png", provider: this.providerName };
   }
 }
