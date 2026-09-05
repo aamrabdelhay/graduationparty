@@ -38,54 +38,33 @@ export class OpenAIProvider implements CapGenerator {
     form.append("output_format", "png");
     form.append("input_fidelity", "high");
     form.append("n", "1");
-    form.append("image", new Blob([new Uint8Array(original)], { type: input.adultAsset.mimeType }), "adult-photo.${input.adultAsset.extension}");
+    form.append("image", new Blob([new Uint8Array(original)], { type: input.adultAsset.mimeType }), `adult-photo.${input.adultAsset.extension}`);
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 120_000);
     let res: Response;
     try {
-      res = await fetch(API_URL, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}` },
-        body: form,
-        signal: controller.signal,
-      });
+      res = await fetch(API_URL, { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form, signal: controller.signal });
     } catch (err) {
       if (controller.signal.aborted) throw new CapGenerationError("The AI service timed out. Please retry.", { cause: err });
       throw new CapGenerationError("Could not reach the AI image service. Please retry.", { cause: err });
-    } finally {
-      clearTimeout(timer);
-    }
+    } finally { clearTimeout(timer); }
 
     if (!res.ok) {
       let detail = "";
-      try {
-        const json = (await res.json()) as { error?: { message?: string } };
-        detail = json.error?.message ?? "";
-      } catch {
-        /* ignore malformed error bodies */
-      }
+      try { detail = ((await res.json()) as { error?: { message?: string } }).error?.message ?? ""; } catch {}
       logger.error("openai cap generation failed", { status: res.status, detail: detail.slice(0, 300) });
-      const message =
-        res.status === 401
-          ? "فشل التحقق من خدمة الذكاء الاصطناعي. راجع مفتاح AI_API_KEY."
-          : res.status === 429
-            ? "خدمة الذكاء الاصطناعي مشغولة حاليًا. حاول مرة أخرى بعد قليل."
-            : detail
-              ? `فشل إنشاء صورة التخرج: ${detail.slice(0, 220)}`
-              : "فشل إنشاء صورة التخرج. حاول مرة أخرى.";
+      const message = res.status === 401
+        ? "فشل التحقق من خدمة الذكاء الاصطناعي. راجع مفتاح AI_API_KEY."
+        : res.status === 429
+          ? "خدمة الذكاء الاصطناعي مشغولة حاليًا. حاول مرة أخرى بعد قليل."
+          : detail ? `فشل إنشاء صورة التخرج: ${detail.slice(0, 220)}` : "فشل إنشاء صورة التخرج. حاول مرة أخرى.";
       throw new CapGenerationError(message);
     }
 
     const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
     const b64 = json.data?.[0]?.b64_json;
     if (!b64) throw new CapGenerationError("لم تُرجع خدمة الذكاء الاصطناعي صورة. حاول مرة أخرى.");
-
-    return {
-      buffer: Buffer.from(b64, "base64"),
-      mimeType: "image/png",
-      extension: "png",
-      provider: this.providerName,
-    };
+    return { buffer: Buffer.from(b64, "base64"), mimeType: "image/png", extension: "png", provider: this.providerName };
   }
 }
