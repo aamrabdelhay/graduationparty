@@ -6,61 +6,52 @@ import { loadDraft } from "@/lib/web/submission";
 
 export default function Landing() {
   const [hasDraft, setHasDraft] = useState(false);
-
-  useEffect(() => {
-    setHasDraft(Boolean(loadDraft()));
-  }, []);
+  useEffect(() => setHasDraft(Boolean(loadDraft())), []);
 
   return (
-    <main id="main-content" className="capu-landing min-h-[100dvh] overflow-hidden px-4 py-5 text-white sm:px-6 sm:py-8">
-      <div className="capu-phone relative mx-auto flex min-h-[calc(100dvh-2.5rem)] max-w-5xl flex-col overflow-hidden rounded-[2.8rem] border border-white/20 shadow-2xl sm:min-h-[calc(100dvh-4rem)]">
-        <div className="capu-glow capu-glow-one" aria-hidden />
-        <div className="capu-glow capu-glow-two" aria-hidden />
+    <main id="main-content" className="luxury-landing min-h-[100dvh] overflow-hidden px-4 py-5 sm:px-8 sm:py-8">
+      <div className="luxury-shell relative mx-auto flex min-h-[calc(100dvh-2.5rem)] max-w-6xl flex-col overflow-hidden sm:min-h-[calc(100dvh-4rem)]">
+        <div className="luxury-orb luxury-orb-gold" aria-hidden />
+        <div className="luxury-orb luxury-orb-burgundy" aria-hidden />
 
-        <header className="relative z-10 flex items-center justify-between px-6 pb-4 pt-7 sm:px-10 sm:pt-9">
-          <div className="flex items-center gap-3">
-            <div className="capu-mark flex h-11 w-11 items-center justify-center rounded-2xl border border-white/25 bg-white/10 text-sm font-bold shadow-lg backdrop-blur-xl">CU</div>
+        <header className="luxury-header relative z-10 flex items-center justify-between px-6 py-7 sm:px-12 sm:py-9">
+          <div className="flex items-center gap-4">
+            <div className="luxury-monogram">ع</div>
             <div className="text-right leading-tight">
-              <p className="text-[10px] font-semibold tracking-[0.14em] text-white/55">CAPITAL UNIVERSITY</p>
-              <p className="font-display text-lg font-semibold">جامعة العاصمة</p>
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-[#b09b82]">جامعة العاصمة</p>
+              <p className="font-display mt-1 text-lg font-semibold text-[#f7f1e7]">احتفال التخرج</p>
             </div>
           </div>
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-semibold tracking-[0.08em] text-white/70 backdrop-blur-xl">دفعة {new Date().getFullYear()}</span>
+          <span className="luxury-year">دفعة {new Date().getFullYear()}</span>
         </header>
 
-        <section className="relative z-10 mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-6 pb-10 pt-4 text-center sm:px-10">
-          <div className="capu-badge mb-6 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-medium text-white/75 shadow-lg backdrop-blur-xl">بداية فصل جديد من الحكاية</div>
-          <p className="font-display text-sm font-medium tracking-[0.16em] text-[#dfca7a] sm:text-base">احتفال التخرج</p>
-          <h1 className="mt-4 max-w-3xl font-display text-4xl font-semibold leading-[1.15] tracking-tight sm:text-7xl">حفلة تخرج جامعة العاصمة</h1>
-          <p className="mt-6 max-w-2xl text-sm leading-8 text-white/65 sm:text-lg sm:leading-9">شارك رحلتك من الطفولة حتى التخرج، وأضف صورك لتصبح ذكرياتك جزءًا من لحظة احتفال استثنائية على الشاشة الكبيرة.</p>
+        <section className="relative z-10 mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-6 pb-14 pt-8 text-center sm:px-10">
+          <div className="luxury-kicker">لحظة تستحق أن تبقى</div>
+          <p className="mt-7 font-display text-sm font-medium tracking-[0.12em] text-[#c7a66a] sm:text-base">رحلة من الطفولة إلى التخرج</p>
+          <h1 className="mt-5 max-w-4xl font-display text-4xl font-semibold leading-[1.18] tracking-tight text-[#f8f2e8] sm:text-7xl">حفلة تخرج جامعة العاصمة</h1>
+          <p className="mt-7 max-w-2xl text-sm leading-8 text-[#c9c0b4] sm:text-lg sm:leading-9">شارك ذكرياتك وصورتك في رحلة احتفالية تُعرض على الشاشة الكبيرة في ليلة التخرج.</p>
 
-          <div className="mt-10 grid w-full max-w-2xl gap-4 sm:grid-cols-2">
-            <Link href="/add?type=individual" className="capu-action group">
-              <span className="capu-action-icon">01</span>
-              <span className="font-display text-xl font-semibold text-white">أضف بياناتي</span>
-              <span className="text-xs leading-5 text-white/50">خريج واحد، وذكريات تستحق أن تُعرض.</span>
-              <span className="mt-1 text-xs font-semibold text-[#dfca7a] transition-transform duration-300 group-hover:-translate-x-1">ابدأ الآن ←</span>
+          <div className="mt-12 grid w-full max-w-3xl gap-4 sm:grid-cols-2">
+            <Link href="/add?type=individual" className="luxury-action group">
+              <span className="luxury-action-number">٠١</span>
+              <span className="font-display text-xl font-semibold text-[#f8f2e8]">أضف بياناتي</span>
+              <span className="text-xs leading-6 text-[#a99e92]">خريج واحد، وذكريات تستحق أن تُعرض.</span>
+              <span className="luxury-action-link">ابدأ الآن <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span></span>
             </Link>
-            <Link href="/add?type=group" className="capu-action group">
-              <span className="capu-action-icon capu-action-icon-outline">+</span>
-              <span className="font-display text-xl font-semibold text-white">أضف أصدقائي</span>
-              <span className="text-xs leading-5 text-white/50">أنشئ مشاركة جماعية لزملائك في الدفعة.</span>
-              <span className="mt-1 text-xs font-semibold text-[#dfca7a] transition-transform duration-300 group-hover:-translate-x-1">إنشاء مجموعة ←</span>
+            <Link href="/add?type=group" className="luxury-action group">
+              <span className="luxury-action-number">+</span>
+              <span className="font-display text-xl font-semibold text-[#f8f2e8]">أضف أصدقائي</span>
+              <span className="text-xs leading-6 text-[#a99e92]">أنشئ مشاركة جماعية لزملائك في الدفعة.</span>
+              <span className="luxury-action-link">إنشاء مجموعة <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span></span>
             </Link>
           </div>
 
-          {hasDraft ? (
-            <Link href="/add?resume=1" className="mt-7 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/55 backdrop-blur transition hover:scale-105 hover:bg-white/10 hover:text-white">استكمال ما بدأت به</Link>
-          ) : null}
+          {hasDraft ? <Link href="/add?resume=1" className="mt-8 text-xs text-[#9f958a] underline-offset-8 transition hover:text-[#d4b87a] hover:underline">استكمال ما بدأت به</Link> : null}
         </section>
 
-        <footer className="relative z-10 flex flex-col items-center justify-between gap-3 border-t border-white/10 px-6 py-5 text-center sm:flex-row sm:px-10">
-          <p className="text-[10px] leading-5 text-white/35">تُستخدم الصور لأغراض احتفال التخرج فقط، ويمكن طلب حذفها.</p>
-          <Link href="/admin/login" aria-label="فتح لوحة الإدارة" className="capu-admin group flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white/75 shadow-lg backdrop-blur-xl">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#dfca7a] shadow-[0_0_10px_rgba(182,153,47,.8)]" />
-            لوحة الإدارة
-            <span className="transition-transform duration-300 group-hover:-translate-x-0.5">↙</span>
-          </Link>
+        <footer className="luxury-footer relative z-10 flex flex-col items-center justify-between gap-4 px-6 py-6 text-center sm:flex-row sm:px-12">
+          <p className="text-[10px] leading-5 text-[#82786d]">تُستخدم الصور لأغراض احتفال التخرج فقط، ويمكن طلب حذفها.</p>
+          <Link href="/admin/login" aria-label="فتح لوحة الإدارة" className="luxury-admin-link">لوحة الإدارة <span>↙</span></Link>
         </footer>
       </div>
     </main>
