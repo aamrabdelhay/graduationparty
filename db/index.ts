@@ -15,9 +15,23 @@ const globalForDb = globalThis as unknown as {
   __gpDrizzle?: ReturnType<typeof createDrizzle>;
 };
 
+function runtimeDatabaseUrl(): string {
+  const raw = process.env.DIRECT_URL || getDatabaseUrl();
+  try {
+    const url = new URL(raw);
+    // Neon rejects startup `options` values such as statement_timeout on
+    // pooled connections. Prefer DIRECT_URL and strip that unsupported option
+    // if the host still supplies a pooled DATABASE_URL.
+    url.searchParams.delete("options");
+    return url.toString();
+  } catch {
+    return raw;
+  }
+}
+
 function createPool(): Pool {
   const pool = new Pool({
-    connectionString: getDatabaseUrl(),
+    connectionString: runtimeDatabaseUrl(),
     max: Number(process.env.PG_POOL_SIZE ?? "5"),
     idleTimeoutMillis: 30_000,
   });
