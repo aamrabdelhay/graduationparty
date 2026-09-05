@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { z } from "zod";
 import ProjectorScreen from "@/components/projector/ProjectorScreen";
 
+// Keep the projector route fully dynamic so its slide state is always live.
 export const metadata: Metadata = { title: "شاشة عرض حفل التخرج" };
 export const dynamic = "force-dynamic";
 
