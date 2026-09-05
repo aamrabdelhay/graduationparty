@@ -1,4 +1,4 @@
-import { asc, eq, isNull } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getDb, type Db, type Tx } from "@/db";
 import { participant } from "@/db/schema";
 
@@ -6,12 +6,7 @@ function resolveDb(tx?: Tx): Db {
   return tx ? (tx as unknown as Db) : getDb();
 }
 
-/**
- * Ensure every participant has a stable presentation position.
- * Older submissions can have a null presentationOrder; without an order they
- * were invisible to the slideshow queue. We backfill only missing positions,
- * preserving every order already chosen by the admin.
- */
+/** Ensure legacy participants without an order become visible to the slideshow. */
 export async function ensurePresentationQueue(tx?: Tx): Promise<void> {
   const db = resolveDb(tx);
   const rows = await db
