@@ -6,8 +6,8 @@ import { logger } from "@/lib/logger";
 
 /**
  * Single shared connection pool. On serverless (Vercel) each function instance
- * creates one pool; the pool is kept small and released when the instance
- * is recycled. `pg` is the node-postgres driver (pure JS, serverless friendly).
+ * creates one pool; the pool is kept small and released when the instance is
+ * recycled. `pg` is the node-postgres driver (pure JS, serverless friendly).
  */
 
 const globalForDb = globalThis as unknown as {
@@ -20,9 +20,6 @@ function createPool(): Pool {
     connectionString: getDatabaseUrl(),
     max: Number(process.env.PG_POOL_SIZE ?? "5"),
     idleTimeoutMillis: 30_000,
-    // Safety nets: never let a stuck statement or an abandoned transaction
-    // hold a pool connection (and its locks) forever.
-    options: "-c statement_timeout=30000 -c idle_in_transaction_session_timeout=45000",
   });
   pool.on("error", (err) => {
     logger.error("pg pool error", { error: err.message });
