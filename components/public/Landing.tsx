@@ -63,9 +63,15 @@ export default function Landing() {
         ) : null}
       </div>
 
-      <p className="relative pb-6 text-center text-xs text-slate-600">
-        Photos are used only for this celebration and removed on request.
-      </p>
+      <div className="relative flex items-center justify-center gap-4 pb-6">
+        <Link
+          href="/admin/login"
+          className="rounded-full border border-white/10 px-4 py-2 text-xs font-medium text-slate-400 transition hover:border-gold-400/40 hover:text-gold-300 focus-visible:outline-2 focus-visible:outline-gold-400"
+        >
+          Admin
+        </Link>
+        <p className="text-xs text-slate-600">Photos are used only for this celebration and removed on request.</p>
+      </div>
     </div>
   );
 }
