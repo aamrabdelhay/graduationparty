@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ink-950: #07111f;
-  --color-ink-900: #0b1b2e;
-  --color-ink-800: #102942;
-  --color-ink-700: #193c5b;
-  --color-ink-600: #2b5675;
-  --color-ink-100: #dbe7f1;
-  --color-cream-50: #f7f9fb;
-  --color-cream-100: #edf3f7;
-  --color-cream-200: #dbe6ed;
-  --color-gold-300: #f0d486;
-  --color-gold-400: #dfbd58;
-  --color-gold-500: #cba33b;
-  --color-gold-600: #a88225;
-  --color-gold-700: #7d621a;
+  --color-ink-950: #07152b;
+  --color-ink-900: #0b2345;
+  --color-ink-800: #12345f;
+  --color-ink-700: #1b477b;
+  --color-ink-600: #2b6095;
+  --color-ink-100: #dce9f7;
+  --color-cream-50: #f7faff;
+  --color-cream-100: #edf4fb;
+  --color-cream-200: #dbe8f5;
+  --color-gold-300: #d9b56c;
+  --color-gold-400: #caa05a;
+  --color-gold-500: #b88a3e;
+  --color-gold-600: #956c2c;
+  --color-gold-700: #74501f;
   --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Kufi Arabic", sans-serif;
 }
@@ -23,22 +23,22 @@ html { -webkit-text-size-adjust: 100%; }
 body { font-family: var(--font-sans); background: var(--color-cream-50); color: #152235; }
 .font-display { font-family: var(--font-display); }
 :focus-visible { outline: 2px solid var(--color-gold-400); outline-offset: 3px; border-radius: 4px; }
-* { scrollbar-width: thin; scrollbar-color: rgba(100, 116, 139, 0.35) transparent; }
+* { scrollbar-width: thin; scrollbar-color: rgba(43, 96, 149, 0.35) transparent; }
 
-/* Capital University-inspired visual language: deep institutional blue, restrained gold and luminous glass. */
+/* Capital University-inspired palette: university blue, royal blue and restrained academic gold. */
 .capu-landing {
   background:
-    radial-gradient(circle at 50% -10%, rgba(223, 189, 88, 0.18), transparent 34%),
-    radial-gradient(circle at 5% 90%, rgba(44, 102, 145, 0.28), transparent 34%),
-    #06111e;
+    radial-gradient(circle at 50% -10%, rgba(184, 138, 62, 0.18), transparent 34%),
+    radial-gradient(circle at 5% 90%, rgba(27, 71, 123, 0.34), transparent 38%),
+    #07152b;
 }
 
 .capu-phone {
   isolation: isolate;
   background:
-    linear-gradient(145deg, rgba(24, 58, 88, 0.96), rgba(6, 20, 34, 0.98) 55%, rgba(10, 31, 49, 0.98)),
-    #07111f;
-  box-shadow: 0 40px 100px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12);
+    linear-gradient(145deg, rgba(18, 52, 95, 0.98), rgba(7, 21, 43, 0.99) 55%, rgba(11, 35, 69, 0.99)),
+    #07152b;
+  box-shadow: 0 40px 100px rgba(2, 12, 28, .5), inset 0 1px 0 rgba(255,255,255,.12);
 }
 
 .capu-phone::after {
@@ -52,15 +52,13 @@ body { font-family: var(--font-sans); background: var(--color-cream-50); color: 
 }
 
 .capu-glow { position: absolute; pointer-events: none; border-radius: 999px; filter: blur(70px); z-index: 0; }
-.capu-glow-one { width: 420px; height: 280px; top: 5%; right: -130px; background: rgba(223, 189, 88, .11); }
-.capu-glow-two { width: 420px; height: 320px; bottom: -120px; left: -150px; background: rgba(37, 100, 145, .22); }
+.capu-glow-one { width: 420px; height: 280px; top: 5%; right: -130px; background: rgba(184, 138, 62, .13); }
+.capu-glow-two { width: 420px; height: 320px; bottom: -120px; left: -150px; background: rgba(43, 96, 149, .25); }
 
 .capu-action,
 .capu-admin,
 .capu-badge,
-.capu-mark {
-  transition: transform .3s cubic-bezier(.2,.8,.2,1), background-color .3s ease, border-color .3s ease, box-shadow .3s ease;
-}
+.capu-mark { transition: transform .3s cubic-bezier(.2,.8,.2,1), background-color .3s ease, border-color .3s ease, box-shadow .3s ease; }
 
 .capu-action {
   display: flex;
@@ -80,7 +78,7 @@ body { font-family: var(--font-sans); background: var(--color-cream-50); color: 
 }
 
 .capu-action:hover,
-.capu-admin:hover { transform: translateY(-4px) scale(1.025); border-color: rgba(223,189,88,.42); background-color: rgba(255,255,255,.12); box-shadow: 0 22px 55px rgba(0,0,0,.24), 0 0 0 1px rgba(223,189,88,.08) inset; }
+.capu-admin:hover { transform: translateY(-4px) scale(1.025); border-color: rgba(202,160,90,.5); background-color: rgba(255,255,255,.12); box-shadow: 0 22px 55px rgba(0,0,0,.24), 0 0 0 1px rgba(202,160,90,.08) inset; }
 .capu-action:active,
 .capu-admin:active { transform: translateY(-1px) scale(.99); }
 
@@ -91,13 +89,13 @@ body { font-family: var(--font-sans); background: var(--color-cream-50); color: 
   align-items: center;
   justify-content: center;
   border-radius: 1.15rem;
-  background: linear-gradient(145deg, #e7c76b, #b68e2c);
-  color: #081525;
+  background: linear-gradient(145deg, #d9b56c, #956c2c);
+  color: #07152b;
   font-size: .8rem;
   font-weight: 800;
-  box-shadow: 0 10px 28px rgba(203,163,59,.2);
+  box-shadow: 0 10px 28px rgba(184,138,62,.2);
 }
-.capu-action-icon-outline { border: 1px solid rgba(240,212,134,.7); background: rgba(240,212,134,.08); color: #f0d486; }
+.capu-action-icon-outline { border: 1px solid rgba(217,181,108,.7); background: rgba(217,181,108,.08); color: #e3c584; }
 .capu-mark { box-shadow: 0 10px 28px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.15); }
 .capu-admin { box-shadow: 0 10px 28px rgba(0,0,0,.2); }
 
