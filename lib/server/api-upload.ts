@@ -8,6 +8,7 @@ import { jsonError, jsonOk } from "@/lib/http";
 import { createSlidingWindowLimiter } from "@/lib/rate-limit-memory";
 import { clientIpFromHeaders } from "@/lib/auth/rate-limit";
 import type { ImageKind } from "@/db/schema";
+import { logger } from "@/lib/logger";
 
 export const publicUploadLimiter = createSlidingWindowLimiter(60 * 60 * 1000, 40);
 
@@ -55,10 +56,16 @@ export async function handleUploadRequest(req: Request, opts: { allowGraduation:
       },
     });
   } catch (err) {
-    const e = err as { name?: string; code?: string; message?: string };
+    const e = err as { name?: string; code?: string; message?: string; stack?: string };
     if (e?.name === "ImageValidationError") {
       return jsonError(e.message ?? "Please upload a valid image.", 422, e.code);
     }
+    logger.error("image_upload_failed", {
+      name: e?.name ?? "Error",
+      code: e?.code ?? null,
+      message: e?.message ?? String(err),
+      stack: e?.stack?.slice(0, 2000) ?? null,
+    });
     return jsonError("Image upload failed. Please try again.", 500, "UPLOAD_FAILED");
   }
 }
