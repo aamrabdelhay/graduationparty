@@ -31,9 +31,18 @@ describe("image pipeline", () => {
     await expect(inspectImage(await gif)).rejects.toBeInstanceOf(ImageValidationError);
   });
 
-  it("detects low resolution", () => {
-    expect(resolutionChecks(100, 100).ok).toBe(false);
+  it("accepts low resolution input for automatic upscaling", () => {
+    expect(resolutionChecks(100, 100).ok).toBe(true);
     expect(resolutionChecks(1200, 900).ok).toBe(true);
+  });
+
+  it("upscales tiny images to the presentation minimum", async () => {
+    const buffer = await makeJpeg(100, 160);
+    const info = await inspectImage(buffer);
+    const out = await normalizeImage(info);
+    const meta = await sharp(out.buffer).metadata();
+    expect(meta.width).toBeGreaterThanOrEqual(320);
+    expect(meta.height).toBeGreaterThanOrEqual(320);
   });
 
   it("normalizes while preserving format & orientation", async () => {
