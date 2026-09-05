@@ -13,17 +13,17 @@ import {
   presentationJump,
   presentationRestartQueue,
 } from "@/lib/presentation/state";
+import { ensurePresentationQueue } from "@/lib/presentation/bootstrap";
 import { logActivity } from "@/lib/activity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET — full control-room snapshot. */
 export async function GET() {
   const guard = await requireAdmin();
   if ("error" in guard) return guard.error;
-  const snapshot = await getControlRoomSnapshot();
-  return jsonOk(snapshot);
+  await ensurePresentationQueue();
+  return jsonOk(await getControlRoomSnapshot());
 }
 
 const commandSchema = z.object({
@@ -31,10 +31,11 @@ const commandSchema = z.object({
   participantId: z.string().uuid().optional(),
 });
 
-/** POST — presentation control command (start/pause/resume/next/prev/replay/skip/jump/restart). */
 export async function POST(req: Request) {
   const guard = await requireAdmin();
   if ("error" in guard) return guard.error;
+  await ensurePresentationQueue();
+
   let body: z.infer<typeof commandSchema>;
   try {
     body = commandSchema.parse(await req.json());
@@ -44,51 +45,35 @@ export async function POST(req: Request) {
 
   let result;
   switch (body.command) {
-    case "start":
-      result = await presentationStart();
-      break;
-    case "pause":
-      result = await presentationPause();
-      break;
-    case "resume":
-      result = await presentationResume();
-      break;
-    case "next":
-      result = await presentationNext();
-      break;
-    case "previous":
-      result = await presentationPrevious();
-      break;
-    case "replay":
-      result = await presentationReplay();
-      break;
-    case "skip":
-      result = await presentationSkip();
-      break;
+    case "start": result = await presentationStart(); break;
+    case "pause": result = await presentationPause(); break;
+    case "resume": result = await presentationResume(); break;
+    case "next": result = await presentationNext(); break;
+    case "previous": result = await presentationPrevious(); break;
+    case "replay": result = await presentationReplay(); break;
+    case "skip": result = await presentationSkip(); break;
     case "jump":
       if (!body.participantId) return jsonError("participantId required.", 422);
       result = await presentationJump(body.participantId);
       break;
-    case "restart":
-      result = await presentationRestartQueue();
-      break;
+    case "restart": result = await presentationRestartQueue(); break;
   }
+
   if (!result.ok) {
-    return jsonError(result.message === "no_queue" || result.message === "no_current"
-      ? "There is nothing to present yet."
+    const message = result.message === "no_queue" || result.message === "no_current"
+      ? "لا يوجد خريج جاهز للعرض."
       : result.message === "at_start"
-        ? "Already at the beginning of the queue."
+        ? "أنت بالفعل عند بداية القائمة."
         : result.message === "already_idle"
-          ? "The presentation is already idle."
-          : "Could not update the presentation.",
-    result.message === "queue_end" ? 200 : 409,
-    "COMMAND_FAILED");
+          ? "العرض متوقف بالفعل."
+          : "تعذر تحديث العرض.";
+    return jsonError(message, result.message === "queue_end" ? 200 : 409, "COMMAND_FAILED");
   }
+
   await logActivity({
     action: `presentation_${body.command}`,
     adminSessionId: guard.session.id,
     metadata: { participantId: body.participantId ?? null },
   });
-  const snapshot = await getControlRoomSnapshot();
-  return jsonOk({ ok: true, snapshot, message: result.message });
+  return jsonOk({ ok: true, snapshot: await getControlRoomSnapshot(), message: result.message });
 }
