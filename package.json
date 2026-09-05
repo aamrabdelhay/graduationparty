@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
-    "build": "npm install --no-save @types/react@19.1.0 @types/react-dom@19.1.0 && drizzle-kit migrate && next build",
+    "build": "drizzle-kit migrate && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
