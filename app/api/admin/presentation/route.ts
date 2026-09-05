@@ -43,15 +43,22 @@ export async function POST(req: Request) {
     return jsonError("Invalid command.", 422, "VALIDATION");
   }
 
+  const before = await getControlRoomSnapshot();
   let result;
   switch (body.command) {
     case "start": result = await presentationStart(); break;
     case "pause": result = await presentationPause(); break;
     case "resume": result = await presentationResume(); break;
-    case "next": result = await presentationNext(); break;
-    case "previous": result = await presentationPrevious(); break;
-    case "replay": result = await presentationReplay(); break;
-    case "skip": result = await presentationSkip(); break;
+    case "next": result = before.state.currentParticipantId ? await presentationNext() : await presentationStart(); break;
+    case "previous": result = before.state.currentParticipantId ? await presentationPrevious() : await presentationStart(); break;
+    case "replay": result = before.state.currentParticipantId ? await presentationReplay() : await presentationStart(); break;
+    case "skip":
+      if (before.state.currentParticipantId) result = await presentationSkip();
+      else {
+        const started = await presentationStart();
+        result = started.ok ? await presentationSkip() : started;
+      }
+      break;
     case "jump":
       if (!body.participantId) return jsonError("participantId required.", 422);
       result = await presentationJump(body.participantId);
