@@ -10,6 +10,17 @@ import { CapGenerationError, type CapGenerationResult, type CapGenerator, type C
 
 const API_URL = "https://api.openai.com/v1/images/edits";
 
+function extensionFromMimeType(mimeType: string): string {
+  switch (mimeType.toLowerCase()) {
+    case "image/jpeg": return "jpg";
+    case "image/webp": return "webp";
+    case "image/gif": return "gif";
+    case "image/avif": return "avif";
+    case "image/png":
+    default: return "png";
+  }
+}
+
 export class OpenAIProvider implements CapGenerator {
   readonly providerName = "openai";
 
@@ -38,7 +49,8 @@ export class OpenAIProvider implements CapGenerator {
     form.append("output_format", "png");
     form.append("input_fidelity", "high");
     form.append("n", "1");
-    form.append("image", new Blob([new Uint8Array(original)], { type: input.adultAsset.mimeType }), `adult-photo.${input.adultAsset.extension}`);
+    const extension = extensionFromMimeType(input.adultAsset.mimeType);
+    form.append("image", new Blob([new Uint8Array(original)], { type: input.adultAsset.mimeType }), `adult-photo.${extension}`);
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 120_000);
