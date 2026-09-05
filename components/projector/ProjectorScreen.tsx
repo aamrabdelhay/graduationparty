@@ -28,7 +28,6 @@ const DEFAULTS = {
   smokeDurationMs: 1800,
   adultDurationMs: 5200,
   nameRevealDurationMs: 900,
-  transitionDurationMs: 1200,
 };
 type Phase = "child" | "smoke" | "adult" | "name" | "done";
 
@@ -41,9 +40,7 @@ export default function ProjectorScreen({ token }: { token: string }) {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/presentation/current?token=${encodeURIComponent(token)}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(`/api/presentation/current?token=${encodeURIComponent(token)}`, { cache: "no-store" });
       if (!res.ok) throw new Error();
       setPayload((await res.json()) as CurrentPayload);
       setError(false);
@@ -88,19 +85,16 @@ export default function ProjectorScreen({ token }: { token: string }) {
     const adultAt = smokeAt + d.smokeDurationMs;
     const nameAt = adultAt + Math.max(0, d.adultDurationMs - d.nameRevealDurationMs);
     const total = adultAt + d.adultDurationMs;
+
     const events: Array<[number, Phase]> = [
       [smokeAt, "smoke"],
       [adultAt, "adult"],
       [nameAt, "name"],
       [total, "done"],
     ];
+    events.forEach(([at, next]) => timersRef.current.add(setTimeout(() => setPhase(next), at)));
 
-    events.forEach(([at, next]) => {
-      const timer = setTimeout(() => setPhase(next), at);
-      timersRef.current.add(timer);
-    });
-
-    const advance = setTimeout(() => {
+    timersRef.current.add(setTimeout(() => {
       if (mode === "AUTOMATIC" && !isPaused && playback === "RUNNING") {
         void fetch("/api/presentation/auto-advance", {
           method: "POST",
@@ -108,13 +102,9 @@ export default function ProjectorScreen({ token }: { token: string }) {
           body: JSON.stringify({ token, version: sequenceVersion }),
         }).catch(() => undefined);
       }
-    }, total);
-    timersRef.current.add(advance);
+    }, total));
 
     return clearTimers;
-    // The payload object itself must NOT be a dependency: the projector polls every 900ms.
-    // Depending on the whole object previously cancelled and restarted the animation every poll.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slideId, running, token, sequenceVersion, mode, isPaused, playback, d.childhoodDurationMs, d.smokeDurationMs, d.adultDurationMs, d.nameRevealDurationMs, clearTimers]);
 
   useEffect(() => () => clearTimers(), [clearTimers]);
@@ -146,12 +136,18 @@ export default function ProjectorScreen({ token }: { token: string }) {
             <img src={graduationUrl} alt="" />
           </div>
           <div className={`projector-smoke ${smokeVisible ? "is-visible" : ""}`} aria-hidden="true">
-            <span className="smoke-cloud smoke-cloud-1" />
-            <span className="smoke-cloud smoke-cloud-2" />
-            <span className="smoke-cloud smoke-cloud-3" />
-            <span className="smoke-cloud smoke-cloud-4" />
-            <span className="smoke-cloud smoke-cloud-5" />
-            <span className="smoke-core" />
+            <div className="smoke-depth smoke-depth-back" />
+            <div className="smoke-depth smoke-depth-mid" />
+            <div className="smoke-depth smoke-depth-front" />
+            <div className="smoke-core" />
+            <div className="cloud cloud-0" />
+            <div className="cloud cloud-1" />
+            <div className="cloud cloud-2" />
+            <div className="cloud cloud-3" />
+            <div className="cloud cloud-4" />
+            <div className="cloud cloud-5" />
+            <div className="cloud cloud-6" />
+            <div className="cloud cloud-7" />
           </div>
           <div className="projector-light-sweep" aria-hidden="true" />
         </div>
