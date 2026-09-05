@@ -1,150 +1,25 @@
 "use client";
-
 import { useCallback, useEffect, useRef, useState } from "react";
 
-interface CurrentPayload {
-  status: "ok" | "waiting" | "finished";
-  participantId?: string;
-  name?: string;
-  childhoodImageUrl?: string | null;
-  graduationImageUrl?: string | null;
-  playback?: "IDLE" | "RUNNING" | "PAUSED" | "FINISHED";
-  isPaused?: boolean;
-  mode?: "AUTOMATIC" | "MANUAL";
-  sequenceVersion?: number;
-  durations?: {
-    childhoodDurationMs: number;
-    smokeDurationMs: number;
-    adultDurationMs: number;
-    nameRevealDurationMs: number;
-    transitionDurationMs: number;
-  };
-}
-
-const DEFAULTS = {
-  childhoodDurationMs: 2000,
-  smokeDurationMs: 2000,
-  adultDurationMs: 5000,
-  nameRevealDurationMs: 800,
-  transitionDurationMs: 800,
-};
-
+interface CurrentPayload { status: "ok" | "waiting" | "finished"; participantId?: string; name?: string; childhoodImageUrl?: string | null; graduationImageUrl?: string | null; playback?: "IDLE" | "RUNNING" | "PAUSED" | "FINISHED"; isPaused?: boolean; mode?: "AUTOMATIC" | "MANUAL"; sequenceVersion?: number; durations?: { childhoodDurationMs: number; smokeDurationMs: number; adultDurationMs: number; nameRevealDurationMs: number; transitionDurationMs: number } }
+const DEFAULTS = { childhoodDurationMs: 2000, smokeDurationMs: 2000, adultDurationMs: 5000, nameRevealDurationMs: 800, transitionDurationMs: 800 };
 type Phase = "child" | "smoke" | "adult" | "name" | "done";
 
 export default function ProjectorScreen({ token }: { token: string }) {
-  const [payload, setPayload] = useState<CurrentPayload | null>(null);
-  const [error, setError] = useState(false);
-  const [phase, setPhase] = useState<Phase>("child");
-  const timersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
-  const slideRef = useRef("");
-
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/presentation/current?token=${encodeURIComponent(token)}`, { cache: "no-store" });
-      if (!res.ok) throw new Error("invalid");
-      setPayload((await res.json()) as CurrentPayload);
-      setError(false);
-    } catch {
-      setError(true);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    void load();
-    const es = new EventSource(`/api/realtime/stream?token=${encodeURIComponent(token)}`);
-    es.addEventListener("message", (ev: MessageEvent) => {
-      try {
-        const data = JSON.parse(ev.data) as { event?: string };
-        if (data.event === "update" || data.event === "snapshot") void load();
-      } catch {}
-    });
-    return () => es.close();
-  }, [load, token]);
-
-  const slideId = payload?.status === "ok" && payload.participantId
-    ? `${payload.participantId}:${payload.sequenceVersion ?? 0}`
-    : payload?.status ?? "none";
+  const [payload, setPayload] = useState<CurrentPayload | null>(null); const [error, setError] = useState(false); const [phase, setPhase] = useState<Phase>("child");
+  const timersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set()); const slideRef = useRef("");
+  const load = useCallback(async () => { try { const res = await fetch(`/api/presentation/current?token=${encodeURIComponent(token)}`, { cache: "no-store" }); if (!res.ok) throw new Error(); setPayload(await res.json() as CurrentPayload); setError(false); } catch { setError(true); } }, [token]);
+  useEffect(() => { void load(); const es = new EventSource(`/api/realtime/stream?token=${encodeURIComponent(token)}`); es.addEventListener("message", (ev: MessageEvent) => { try { const d = JSON.parse(ev.data) as { event?: string }; if (d.event === "update" || d.event === "snapshot") void load(); } catch {} }); return () => es.close(); }, [load, token]);
+  const slideId = payload?.status === "ok" && payload.participantId ? `${payload.participantId}:${payload.sequenceVersion ?? 0}` : payload?.status ?? "none";
   const running = payload?.status === "ok" && payload.playback === "RUNNING" && !payload.isPaused;
-
-  function clearTimers() {
-    timersRef.current.forEach(clearTimeout);
-    timersRef.current.clear();
-  }
-
-  useEffect(() => {
-    if (slideRef.current === slideId) return;
-    slideRef.current = slideId;
-    clearTimers();
-    setPhase("child");
-  }, [slideId]);
-
-  useEffect(() => {
-    clearTimers();
-    if (!running || payload?.status !== "ok") return;
-    const d = { ...DEFAULTS, ...(payload.durations ?? {}) };
-    const smokeStart = d.childhoodDurationMs;
-    const adultStart = smokeStart + d.smokeDurationMs;
-    const nameAt = adultStart + Math.max(0, d.adultDurationMs - d.nameRevealDurationMs);
-    const total = adultStart + d.adultDurationMs;
-
-    const schedule = [
-      [smokeStart, "smoke"],
-      [adultStart, "adult"],
-      [nameAt, "name"],
-      [total, "done"],
-    ] as const;
-    for (const [at, next] of schedule) {
-      const timer = setTimeout(() => setPhase(next), at);
-      timersRef.current.add(timer);
-    }
-    const advance = setTimeout(() => {
-      if (payload.playback === "RUNNING" && payload.mode === "AUTOMATIC" && !payload.isPaused) {
-        void fetch("/api/presentation/auto-advance", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token, version: payload.sequenceVersion ?? 0 }),
-        });
-      }
-    }, total);
-    timersRef.current.add(advance);
-    return clearTimers;
-  }, [slideId, running, token, payload]);
-
+  const clearTimers = () => { timersRef.current.forEach(clearTimeout); timersRef.current.clear(); };
+  useEffect(() => { if (slideRef.current === slideId) return; slideRef.current = slideId; clearTimers(); setPhase("child"); }, [slideId]);
+  useEffect(() => { clearTimers(); if (!running || payload?.status !== "ok") return; const d = { ...DEFAULTS, ...(payload.durations ?? {}) }; const smokeStart = d.childhoodDurationMs; const adultStart = smokeStart + d.smokeDurationMs; const nameAt = adultStart + Math.max(0, d.adultDurationMs - d.nameRevealDurationMs); const total = adultStart + d.adultDurationMs; const events: Array<[number, Phase]> = [[smokeStart, "smoke"], [adultStart, "adult"], [nameAt, "name"], [total, "done"]]; events.forEach(([at, next]) => { const t = setTimeout(() => setPhase(next), at); timersRef.current.add(t); }); const advance = setTimeout(() => { if (payload.playback === "RUNNING" && payload.mode === "AUTOMATIC" && !payload.isPaused) void fetch("/api/presentation/auto-advance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, version: payload.sequenceVersion ?? 0 }) }); }, total); timersRef.current.add(advance); return clearTimers; }, [slideId, running, token, payload]);
   useEffect(() => () => clearTimers(), []);
-
   if (error) return <main className="projector-stage"><div className="projector-status">تعذر الاتصال بشاشة العرض</div></main>;
   if (!payload || payload.status === "waiting") return <main className="projector-stage"><div className="projector-status">في انتظار الخريج التالي…</div></main>;
   if (payload.status === "finished") return <main className="projector-stage"><div className="projector-status">انتهى عرض جميع الخريجين</div></main>;
   if (!payload.name || !payload.childhoodImageUrl || !payload.graduationImageUrl) return <main className="projector-stage"><div className="projector-status">الصورة غير مكتملة لهذا الخريج</div></main>;
-
-  const d = { ...DEFAULTS, ...(payload.durations ?? {}) };
-  const childVisible = phase === "child" || phase === "smoke";
-  const adultVisible = phase !== "child";
-  const smokeVisible = phase === "smoke";
-  const nameVisible = phase === "name" || phase === "done";
-
-  return (
-    <main className="projector-stage" aria-label="شاشة عرض حفل التخرج">
-      <div className="projector-halo" aria-hidden />
-      <div className="projector-frame">
-        <div className="projector-frame-inner">
-          <div className={`projector-photo ${childVisible ? "is-visible" : ""}`}>
-            <img src={payload.childhoodImageUrl} alt="" />
-          </div>
-          <div className={`projector-photo ${adultVisible ? "is-visible" : ""}`}>
-            <img src={payload.graduationImageUrl} alt="" />
-          </div>
-          <div
-            className={`projector-smoke ${smokeVisible ? "is-visible" : ""}`}
-            style={{ transitionDuration: `${Math.max(300, d.smokeDurationMs / 2)}ms` }}
-            aria-hidden
-          />
-          <div className="projector-cap-mark" aria-hidden>✦</div>
-        </div>
-      </div>
-      <div className={`projector-name-plate ${nameVisible ? "is-visible" : ""}`} style={{ transitionDuration: `${d.nameRevealDurationMs}ms` }}>
-        <span className="projector-name">{payload.name}</span>
-      </div>
-    </main>
-  );
+  const d = { ...DEFAULTS, ...(payload.durations ?? {}) }; const childVisible = phase === "child" || phase === "smoke"; const adultVisible = phase !== "child"; const smokeVisible = phase === "smoke"; const nameVisible = phase === "name" || phase === "done";
+  return <main className="projector-stage" aria-label="شاشة عرض حفل التخرج"><div className="projector-halo" aria-hidden /><div className="projector-frame"><div className="projector-frame-inner"><div className={`projector-photo projector-photo-child ${childVisible ? "is-visible" : ""}`}><img src={payload.childhoodImageUrl} alt="" /></div><div className={`projector-photo projector-photo-adult ${adultVisible ? "is-visible" : ""}`}><img src={payload.graduationImageUrl} alt="" /></div><div className={`projector-smoke ${smokeVisible ? "is-visible" : ""}`} style={{ transitionDuration: `${Math.max(300, d.smokeDurationMs / 2)}ms` }} aria-hidden /></div></div><div className={`projector-name-plate ${nameVisible ? "is-visible" : ""}`} style={{ transitionDuration: `${d.nameRevealDurationMs}ms` }}><span className="projector-name">{payload.name}</span></div></main>;
 }
