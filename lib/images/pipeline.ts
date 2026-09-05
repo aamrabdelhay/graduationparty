@@ -55,14 +55,14 @@ export async function inspectImage(buffer: Buffer): Promise<ImageInfo> {
   const format = meta.format ?? "";
   const extension = format === "jpeg" ? "jpg" : format === "png" ? "png" : format === "webp" ? "webp" : undefined;
   if (!extension) {
-    throw new ImageValidationError(
-      "UNSUPPORTED_FORMAT",
-      "Unsupported file format. Please upload a JPG, PNG or WebP image.",
-    );
+    throw new ImageValidationError("UNSUPPORTED_FORMAT", "Unsupported file format. Please upload a JPG, PNG or WebP image.");
   }
   const mimeType = format === "jpeg" ? "image/jpeg" : `image/${format}`;
   const width = meta.width ?? 0;
   const height = meta.height ?? 0;
+  if (width < 1 || height < 1) {
+    throw new ImageValidationError("INVALID_DIMENSIONS", "The image has invalid dimensions. Please choose another photo.");
+  }
   return { buffer, mimeType, extension, width, height, bytes: buffer.byteLength };
 }
 
@@ -74,34 +74,22 @@ export interface QualityCheck {
   message?: string;
 }
 
-/** Resolution sanity checks shared by upload validation. */
+/**
+ * Photos are accepted even when smaller than the presentation target. The
+ * normalizer safely upscales the short edge to the minimum output size so a
+ * low-resolution phone/memory photo no longer blocks the guest flow.
+ */
 export function resolutionChecks(width: number, height: number): QualityCheck {
-  if (width < MIN_IMAGE_DIMENSION || height < MIN_IMAGE_DIMENSION) {
-    return {
-      ok: false,
-      code: "LOW_RESOLUTION",
-      message: "The image resolution is too low. Please upload a photo at least 320×320 pixels.",
-    };
-  }
-  if (width * height < MIN_IMAGE_DIMENSION * MIN_IMAGE_DIMENSION) {
-    return {
-      ok: false,
-      code: "LOW_RESOLUTION",
-      message: "The image resolution is too low. Please upload a clearer image.",
-    };
+  if (width < 1 || height < 1) {
+    return { ok: false, code: "INVALID_DIMENSIONS", message: "The image has invalid dimensions. Please choose another photo." };
   }
   return { ok: true };
 }
 
 /**
  * Person/head suitability check.
- *
- * A real visual model (OpenAI vision) is used when explicitly enabled via
- * AI_VISION_CHECK=true. It only ever REJECTS images that clearly contain no
- * person/head. When disabled (default) normal photos are never rejected —
- * uploads only fail the hard checks above. This keeps the public flow
- * friction-free while still providing a detection path "where technically
- * possible".
+ * A real visual model is used only when explicitly enabled. Detection failures
+ * never block an otherwise valid upload.
  */
 export async function personCheck(kind: ImageKind, buffer: Buffer): Promise<QualityCheck> {
   if (process.env.AI_VISION_CHECK !== "true") return { ok: true };
@@ -109,7 +97,6 @@ export async function personCheck(kind: ImageKind, buffer: Buffer): Promise<Qual
   try {
     return await checkPersonPresence(kind, buffer);
   } catch {
-    // Detection infrastructure failure must not block uploads.
     return { ok: true };
   }
 }
@@ -122,20 +109,28 @@ export interface NormalizedImage {
   height: number;
 }
 
-/** Auto-rotate, strip metadata and re-encode (same format) to keep files lean. */
+/** Auto-rotate, normalize and guarantee at least 320px on each output edge. */
 export async function normalizeImage(info: ImageInfo): Promise<NormalizedImage> {
   const MAX_EDGE = 2000;
-  // `.rotate()` bakes EXIF orientation into pixels; metadata is stripped so
-  // no duplicate-rotation can happen on display.
   let pipeline = sharp(info.buffer, { failOn: "none" }).rotate();
   const longest = Math.max(info.width, info.height);
+  const shortest = Math.min(info.width, info.height);
+
   if (longest > MAX_EDGE) {
     const scale = MAX_EDGE / longest;
     pipeline = pipeline.resize({
-      width: Math.round(info.width * scale),
-      height: Math.round(info.height * scale),
+      width: Math.max(1, Math.round(info.width * scale)),
+      height: Math.max(1, Math.round(info.height * scale)),
       fit: "inside",
       withoutEnlargement: true,
+    });
+  } else if (shortest < MIN_IMAGE_DIMENSION) {
+    const scale = MIN_IMAGE_DIMENSION / shortest;
+    pipeline = pipeline.resize({
+      width: Math.max(MIN_IMAGE_DIMENSION, Math.round(info.width * scale)),
+      height: Math.max(MIN_IMAGE_DIMENSION, Math.round(info.height * scale)),
+      fit: "inside",
+      withoutEnlargement: false,
     });
   }
 
