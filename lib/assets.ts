@@ -2,11 +2,13 @@
  * ImageAsset lifecycle: create (store file + row), commit/attach, delete
  * (row + object-storage file), and cleanup of orphaned assets.
  */
+import { randomUUID } from "node:crypto";
 import { and, eq, isNull, lt } from "drizzle-orm";
 import { getDb, type Tx } from "@/db";
 import { imageAsset } from "@/db/schema";
 import type { ImageAssetRow, ImageKind } from "@/db/schema";
 import { getStorage, deleteStoredObject } from "@/lib/storage";
+import { getStorageProvider } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
 export interface CreateAssetInput {
@@ -23,6 +25,37 @@ export interface CreateAssetInput {
 }
 
 export async function createImageAsset(input: CreateAssetInput): Promise<ImageAssetRow> {
+  const provider = getStorageProvider();
+
+  // Neon is the durable fallback when Vercel Blob is not configured. Keep the
+  // normalized image bytes in JSONB so uploads work without an external bucket.
+  if (provider === "database") {
+    const id = randomUUID();
+    const key = `database/${input.kind.toLowerCase()}/${id}.${input.extension}`;
+    const [row] = await getDb()
+      .insert(imageAsset)
+      .values({
+        id,
+        kind: input.kind,
+        storageProvider: provider,
+        storageKey: key,
+        publicUrl: `/api/images/${id}`,
+        mimeType: input.mimeType,
+        fileSize: input.buffer.byteLength,
+        width: input.width,
+        height: input.height,
+        committed: input.committed ?? false,
+        participantId: input.participantId ?? null,
+        metadata: {
+          ...(input.metadata ?? {}),
+          _databaseImageBase64: input.buffer.toString("base64"),
+        },
+      })
+      .returning();
+    logger.info("image_asset_stored_in_database", { id, bytes: input.buffer.byteLength });
+    return row;
+  }
+
   const storage = getStorage();
   const stored = await storage.put({
     folder: input.kind.toLowerCase(),
@@ -72,7 +105,9 @@ export async function updateAssetParticipantLink(id: string, participantId: stri
 
 /** Delete a stored file + its row. Never throws on missing files. */
 export async function deleteImageAsset(row: Pick<ImageAssetRow, "id" | "storageKey" | "storageProvider">, tx?: Tx): Promise<void> {
-  await deleteStoredObject(row.storageKey, row.storageProvider);
+  if (row.storageProvider !== "database") {
+    await deleteStoredObject(row.storageKey, row.storageProvider);
+  }
   const db = tx ?? getDb();
   await db.delete(imageAsset).where(eq(imageAsset.id, row.id));
 }
@@ -87,7 +122,9 @@ export async function cleanupOrphanAssets(hoursOld = 24): Promise<number> {
     .where(and(eq(imageAsset.committed, false), isNull(imageAsset.participantId), lt(imageAsset.createdAt, cutoff)));
   let removed = 0;
   for (const row of rows) {
-    await deleteStoredObject(row.storageKey, row.storageProvider);
+    if (row.storageProvider !== "database") {
+      await deleteStoredObject(row.storageKey, row.storageProvider);
+    }
     await getDb().delete(imageAsset).where(eq(imageAsset.id, row.id));
     removed += 1;
   }
