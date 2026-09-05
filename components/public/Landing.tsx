@@ -16,11 +16,8 @@ export default function Landing() {
       <div className="capu-phone relative mx-auto flex min-h-[calc(100dvh-2.5rem)] max-w-5xl flex-col overflow-hidden rounded-[2.8rem] border border-white/20 shadow-2xl sm:min-h-[calc(100dvh-4rem)]">
         <div className="capu-glow capu-glow-one" aria-hidden />
         <div className="capu-glow capu-glow-two" aria-hidden />
-        <div className="pointer-events-none absolute left-1/2 top-3 z-20 h-7 w-28 -translate-x-1/2 rounded-full bg-black/70 shadow-inner sm:top-4">
-          <span className="absolute right-4 top-2 h-2 w-2 rounded-full bg-white/20" />
-        </div>
 
-        <header className="relative z-10 flex items-center justify-between px-6 pb-4 pt-8 sm:px-10 sm:pt-10">
+        <header className="relative z-10 flex items-center justify-between px-6 pb-4 pt-7 sm:px-10 sm:pt-9">
           <div className="flex items-center gap-3">
             <div className="capu-mark flex h-11 w-11 items-center justify-center rounded-2xl border border-white/25 bg-white/10 text-sm font-bold shadow-lg backdrop-blur-xl">CU</div>
             <div className="text-left leading-tight">
