@@ -1,0 +1,27 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+*.tsbuildinfo
+next-env.d.ts
+
+# production
+/build
+
+# secrets — NEVER commit these
+.env
+.env.local
+.env*.local
+.env.development
+.env.production
+
+# local upload storage (dev fallback)
+/uploads
+/public/uploads
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
