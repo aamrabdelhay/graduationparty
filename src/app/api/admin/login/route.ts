@@ -46,12 +46,11 @@ export async function POST(req: NextRequest) {
     }
 
     const token = await createSession(ip);
-    // Reminder data: unsaved changes from previous sessions.
-
-   const res = NextResponse.json({
-  ok: true,
-  previousUnsaved: 0,
-});
+    // Previous-unsaved reminder is intentionally omitted from login response.
+    const res = NextResponse.json({
+      ok: true,
+      previousUnsaved: 0,
+    });
     const c = sessionCookieValue(token);
     res.cookies.set(c.name, c.value, c);
     return res;
