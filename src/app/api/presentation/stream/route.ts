@@ -3,6 +3,9 @@ import { bus, publicSnapshot, validateDisplayToken } from "@/lib/presentation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// SSE connections outlive the default function limit; EventSource
+// auto-reconnects on drop, and the projector also polls every 7s.
+export const maxDuration = 60;
 
 /**
  * Real-time projector channel (Server-Sent Events, serverless compatible).

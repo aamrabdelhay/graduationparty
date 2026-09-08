@@ -7,6 +7,8 @@ import {
 } from "@/lib/media";
 
 export const runtime = "nodejs";
+// AI image processing can take a while with an external provider.
+export const maxDuration = 60;
 
 /**
  * Public staging endpoint (participant flow + admin replace flow).
