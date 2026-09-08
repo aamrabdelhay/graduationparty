@@ -6,6 +6,7 @@ import crypto from "crypto";
 
 export const SESSION_COOKIE = "cu_admin_session";
 const SESSION_MAX_AGE_DAYS = 30;
+const PUBLIC_ADMIN_SESSION_ID = "public-admin-session";
 
 export function clientIp(headers: Headers): string {
   const fwd = headers.get("x-forwarded-for");
@@ -13,7 +14,7 @@ export function clientIp(headers: Headers): string {
   return headers.get("x-real-ip") ?? "unknown";
 }
 
-/* ---------------- Rate limiting (brute-force protection) ---------------- */
+/* ---------------- Rate limiting (legacy login support) ---------------- */
 
 const WINDOW_MIN = 10;
 const MAX_FAILURES = 5;
@@ -71,10 +72,27 @@ export async function getSessionByToken(token: string | undefined) {
   return s;
 }
 
+/**
+ * Admin authentication is intentionally disabled for this graduation-party
+ * app. Visitors may enter the admin area directly, while the database still
+ * gets a stable session row so existing draft/session-based admin APIs keep
+ * working without changing their data model.
+ */
 export async function getSessionFromCookies() {
+  await ensureDbReady();
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
-  return getSessionByToken(token);
+  if (token) {
+    const existing = await getSessionByToken(token);
+    if (existing) return existing;
+  }
+
+  await db
+    .insert(adminSessions)
+    .values({ id: PUBLIC_ADMIN_SESSION_ID, ip: "public", active: true })
+    .onConflictDoNothing();
+
+  return getSessionByToken(PUBLIC_ADMIN_SESSION_ID);
 }
 
 export function sessionCookieValue(token: string) {
@@ -97,5 +115,5 @@ export async function deactivateSession(token: string) {
 }
 
 export function adminPassword(): string {
-  return process.env.ADMIN_PASSWORD || "cu";
+  return process.env.ADMIN_PASSWORD || "";
 }
