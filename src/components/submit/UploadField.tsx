@@ -70,8 +70,27 @@ export default function UploadField({
         kind === "adult" ? setTimeout(() => setBusy("ai"), 1200) : null;
       const res = await fetch("/api/stage", { method: "POST", body: fd });
       if (phaseTimer) clearTimeout(phaseTimer);
-      const j = await res.json();
-      if (!j.ok) throw new Error(j.error || "فشل رفع الصورة");
+
+      const contentType = res.headers.get("content-type") || "";
+      const raw = await res.text();
+      let j: any = null;
+      if (contentType.includes("application/json")) {
+        try {
+          j = JSON.parse(raw);
+        } catch {
+          // Treat malformed JSON as a server failure below.
+        }
+      }
+
+      if (!res.ok) {
+        const serverMessage =
+          j?.error || `تعذر تجهيز الصورة (${res.status})`;
+        throw new Error(serverMessage);
+      }
+      if (!j?.ok) {
+        throw new Error(j?.error || "فشل رفع الصورة");
+      }
+
       onChange({
         originalUrl: j.originalUrl,
         graduationUrl: j.graduationUrl,
