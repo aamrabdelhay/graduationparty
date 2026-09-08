@@ -1,18 +1,14 @@
 import { NextRequest } from "next/server";
 import { getSessionFromCookies } from "@/lib/auth";
-import { db } from "@/db";
+import { db, ensureDbReady } from "@/db";
 import { groups, participants } from "@/db/schema";
 import { asc, sql } from "drizzle-orm";
-import {
-  generateGraduationImage,
-  loadImageBuffer,
-  storeImage,
-} from "@/lib/media";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  await ensureDbReady();
   const session = await getSessionFromCookies();
   if (!session) return Response.json({ ok: false }, { status: 401 });
 
@@ -26,6 +22,7 @@ export async function GET() {
 
 /** Add a participant directly from the admin dashboard. */
 export async function POST(req: NextRequest) {
+  await ensureDbReady();
   const session = await getSessionFromCookies();
   if (!session) return Response.json({ ok: false }, { status: 401 });
 
@@ -68,6 +65,10 @@ export async function POST(req: NextRequest) {
     const p = created[0];
 
     try {
+      // Keep sharp/media out of read-only routes; load it only for this write path.
+      const { generateGraduationImage, loadImageBuffer, storeImage } = await import(
+        "@/lib/media"
+      );
       const buf = await loadImageBuffer(body.adultUrl);
       const out = await generateGraduationImage(buf);
       const url = await storeImage(out, "generated");
