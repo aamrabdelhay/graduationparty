@@ -3,7 +3,7 @@ import { Pool } from "pg";
 
 const globalForDb = globalThis as typeof globalThis & {
   __cuGradPool?: Pool;
-  __cuBootstrapped?: Promise<void>;
+  __cuDbReady?: Promise<void>;
 };
 
 const BOOTSTRAP_SQL = `
@@ -98,32 +98,39 @@ function createPool(): Pool {
       "DATABASE_URL is not configured — set it in your environment variables",
     );
   }
-  const p = new Pool({ connectionString: databaseUrl });
-  // Self-heal: auto-create all tables on first connection so Vercel
-  // works out-of-the-box without requiring a manual `drizzle-kit push`.
-  if (!globalForDb.__cuBootstrapped) {
-    globalForDb.__cuBootstrapped = p
-      .query(BOOTSTRAP_SQL)
-      .then(() => undefined)
-      .catch((e) => {
-        console.error("Auto-bootstrap warning:", e?.message || e);
-      });
-  }
-  return p;
+  return new Pool({
+    connectionString: databaseUrl,
+    max: 10,
+    ssl:
+      process.env.NODE_ENV === "production" && !databaseUrl.includes("127.0.0.1")
+        ? { rejectUnauthorized: false }
+        : undefined,
+  });
 }
 
-function getPool(): Pool {
+export function getPool(): Pool {
   globalForDb.__cuGradPool = globalForDb.__cuGradPool ?? createPool();
   return globalForDb.__cuGradPool;
+}
+
+export async function ensureDbReady(): Promise<void> {
+  if (globalForDb.__cuDbReady) return globalForDb.__cuDbReady;
+  const p = getPool();
+  globalForDb.__cuDbReady = (async () => {
+    try {
+      await p.query(BOOTSTRAP_SQL);
+    } catch (e) {
+      console.error("Auto-bootstrap warning:", e);
+      globalForDb.__cuDbReady = undefined;
+    }
+  })();
+  return globalForDb.__cuDbReady;
 }
 
 function getDb(): NodePgDatabase {
   return drizzle(getPool());
 }
 
-/**
- * Lazily-initialized Drizzle client with automatic table creation.
- */
 export const db = new Proxy({} as NodePgDatabase, {
   get(_target, prop) {
     const real = getDb() as unknown as Record<string | symbol, unknown>;

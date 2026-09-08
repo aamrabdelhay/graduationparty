@@ -16,8 +16,11 @@ interface MemberPayload {
 const okUrl = (u?: string | null) =>
   !!u && (/^\/api\/media\/staging\//.test(u) || /^https:\/\/.*staging/.test(u));
 
+import { ensureDbReady } from "@/db";
+
 export async function POST(req: NextRequest) {
   try {
+    await ensureDbReady();
     const body = (await req.json()) as {
       type?: string;
       members?: MemberPayload[];

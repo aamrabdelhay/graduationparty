@@ -16,7 +16,10 @@ bus.setMaxListeners(200);
 
 /* ------------------------------ State row ------------------------------ */
 
+import { ensureDbReady } from "@/db";
+
 export async function ensureState() {
+  await ensureDbReady();
   const rows = await db
     .select()
     .from(presentationState)

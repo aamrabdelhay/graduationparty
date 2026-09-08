@@ -18,7 +18,10 @@ export function clientIp(headers: Headers): string {
 const WINDOW_MIN = 10;
 const MAX_FAILURES = 5;
 
+import { ensureDbReady } from "@/db";
+
 export async function loginBlockedSeconds(ip: string): Promise<number> {
+  await ensureDbReady();
   const since = new Date(Date.now() - WINDOW_MIN * 60_000);
   const rows = await db
     .select({ attemptedAt: loginAttempts.attemptedAt, success: loginAttempts.success })
