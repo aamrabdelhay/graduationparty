@@ -1,12 +1,6 @@
 import { db } from "@/db";
 import { drafts, participants, Draft, Participant } from "@/db/schema";
 import { and, asc, eq } from "drizzle-orm";
-import {
-  deleteImageByUrl,
-  generateGraduationImage,
-  loadImageBuffer,
-  storeImage,
-} from "@/lib/media";
 
 export type DraftField =
   | "fullName"
@@ -59,7 +53,6 @@ export async function upsertDraft(
     )
     .limit(1);
 
-  // Value reverted to the live DB value -> remove draft.
   if (newValue === currentVal) {
     if (existing[0]) await db.delete(drafts).where(eq(drafts.id, existing[0].id));
     return null;
@@ -116,6 +109,9 @@ async function regenerateGraduation(p: Participant, adultUrl: string) {
     .set({ gradImageStatus: "PROCESSING", updatedAt: new Date() })
     .where(eq(participants.id, p.id));
   try {
+    const { generateGraduationImage, loadImageBuffer, storeImage } = await import(
+      "@/lib/media"
+    );
     const buf = await loadImageBuffer(adultUrl);
     const out = await generateGraduationImage(buf);
     const url = await storeImage(out, "generated");
@@ -153,8 +149,6 @@ export async function saveDrafts(
   const conflicts: DraftConflict[] = [];
   let applied = 0;
 
-  // Group by participant: multiple drafts on the same record are applied
-  // atomically in a single version bump.
   const byParticipant = new Map<string, typeof open>();
   for (const d of open) {
     const arr = byParticipant.get(d.participantId) ?? [];
@@ -229,8 +223,14 @@ export async function saveDrafts(
       applied += 1;
     }
 
-    // Image pipeline follow-up work.
-    for (const url of oldImages) await deleteImageByUrl(url);
+    for (const url of oldImages) {
+      try {
+        const { deleteImageByUrl } = await import("@/lib/media");
+        await deleteImageByUrl(url);
+      } catch {
+        // Image cleanup is best-effort and must not break the database save.
+      }
+    }
     if (adultReplacement) {
       const fresh = { ...p, ...patch } as Participant;
       await regenerateGraduation(fresh, adultReplacement);
@@ -240,7 +240,6 @@ export async function saveDrafts(
   return { applied, conflicts };
 }
 
-/** Logout without saving -> mark drafts discarded, unacknowledged. */
 export async function discardOpenDrafts(sessionId: string) {
   const res = await db
     .update(drafts)
@@ -266,7 +265,6 @@ export async function acknowledgeDiscarded() {
     .where(and(eq(drafts.status, "DISCARDED"), eq(drafts.acknowledged, false)));
 }
 
-/** Re-open discarded drafts under the new session using fresh versions. */
 export async function restoreDiscarded(sessionId: string, draftIds: string[]) {
   let restored = 0;
   for (const id of draftIds) {
