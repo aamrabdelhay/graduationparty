@@ -8,46 +8,44 @@ const globalForDb = globalThis as typeof globalThis & {
 
 /**
  * Non-destructive database bootstrap/migration.
- *
- * The app may be connected to a database created by an older revision of the
- * project. Never drop tables, types, or rows here. Instead, create missing
- * objects and add missing columns while preserving anything already present.
+ * Never drops tables, types, or rows. It creates missing objects and adds
+ * missing columns/enum values so an older production database can be upgraded
+ * in place without losing student submissions.
  */
 const STATEMENTS = [
   `CREATE EXTENSION IF NOT EXISTS "pgcrypto";`,
 
-  // Create missing enum types, then add required values to legacy enums.
   `DO $$ BEGIN
      CREATE TYPE grad_image_status AS ENUM ('PENDING','PROCESSING','READY','FAILED');
    EXCEPTION WHEN duplicate_object THEN NULL;
    END $$;`,
-  `DO $$ BEGIN ALTER TYPE grad_image_status ADD VALUE IF NOT EXISTS 'PENDING'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
-  `DO $$ BEGIN ALTER TYPE grad_image_status ADD VALUE IF NOT EXISTS 'PROCESSING'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
-  `DO $$ BEGIN ALTER TYPE grad_image_status ADD VALUE IF NOT EXISTS 'READY'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
-  `DO $$ BEGIN ALTER TYPE grad_image_status ADD VALUE IF NOT EXISTS 'FAILED'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+  `ALTER TYPE grad_image_status ADD VALUE IF NOT EXISTS 'PENDING';`,
+  `ALTER TYPE grad_image_status ADD VALUE IF NOT EXISTS 'PROCESSING';`,
+  `ALTER TYPE grad_image_status ADD VALUE IF NOT EXISTS 'READY';`,
+  `ALTER TYPE grad_image_status ADD VALUE IF NOT EXISTS 'FAILED';`,
 
   `DO $$ BEGIN
      CREATE TYPE draft_status AS ENUM ('OPEN','SAVED','DISCARDED');
    EXCEPTION WHEN duplicate_object THEN NULL;
    END $$;`,
-  `DO $$ BEGIN ALTER TYPE draft_status ADD VALUE IF NOT EXISTS 'OPEN'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
-  `DO $$ BEGIN ALTER TYPE draft_status ADD VALUE IF NOT EXISTS 'SAVED'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
-  `DO $$ BEGIN ALTER TYPE draft_status ADD VALUE IF NOT EXISTS 'DISCARDED'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+  `ALTER TYPE draft_status ADD VALUE IF NOT EXISTS 'OPEN';`,
+  `ALTER TYPE draft_status ADD VALUE IF NOT EXISTS 'SAVED';`,
+  `ALTER TYPE draft_status ADD VALUE IF NOT EXISTS 'DISCARDED';`,
 
   `DO $$ BEGIN
      CREATE TYPE submission_type AS ENUM ('SOLO','GROUP');
    EXCEPTION WHEN duplicate_object THEN NULL;
    END $$;`,
-  `DO $$ BEGIN ALTER TYPE submission_type ADD VALUE IF NOT EXISTS 'SOLO'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
-  `DO $$ BEGIN ALTER TYPE submission_type ADD VALUE IF NOT EXISTS 'GROUP'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+  `ALTER TYPE submission_type ADD VALUE IF NOT EXISTS 'SOLO';`,
+  `ALTER TYPE submission_type ADD VALUE IF NOT EXISTS 'GROUP';`,
 
   `DO $$ BEGIN
      CREATE TYPE presentation_status AS ENUM ('IDLE','RUNNING','FINISHED');
    EXCEPTION WHEN duplicate_object THEN NULL;
    END $$;`,
-  `DO $$ BEGIN ALTER TYPE presentation_status ADD VALUE IF NOT EXISTS 'IDLE'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
-  `DO $$ BEGIN ALTER TYPE presentation_status ADD VALUE IF NOT EXISTS 'RUNNING'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
-  `DO $$ BEGIN ALTER TYPE presentation_status ADD VALUE IF NOT EXISTS 'FINISHED'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,
+  `ALTER TYPE presentation_status ADD VALUE IF NOT EXISTS 'IDLE';`,
+  `ALTER TYPE presentation_status ADD VALUE IF NOT EXISTS 'RUNNING';`,
+  `ALTER TYPE presentation_status ADD VALUE IF NOT EXISTS 'FINISHED';`,
 
   `CREATE TABLE IF NOT EXISTS groups (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
