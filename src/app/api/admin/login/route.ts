@@ -31,8 +31,7 @@ export async function POST(req: NextRequest) {
     const password = String(body.password ?? "").trim();
     const expected = adminPassword().trim();
 
-    // Constant-time comparison over SHA-256 digests: safe for any encoding
-    // (e.g. an Arabic keyboard layout producing "عو" instead of "cu").
+    // Constant-time comparison over SHA-256 digests.
     const hash = (v: string) =>
       crypto.createHash("sha256").update(v, "utf8").digest();
     const match = crypto.timingSafeEqual(hash(password), hash(expected));
@@ -46,11 +45,8 @@ export async function POST(req: NextRequest) {
     }
 
     const token = await createSession(ip);
-    // Previous-unsaved reminder is intentionally omitted from login response.
-    const res = NextResponse.json({
-      ok: true,
-      previousUnsaved: 0,
-    });
+    // Keep the successful login response minimal and independent of image modules.
+    const res = NextResponse.json({ ok: true, previousUnsaved: 0 });
     const c = sessionCookieValue(token);
     res.cookies.set(c.name, c.value, c);
     return res;
