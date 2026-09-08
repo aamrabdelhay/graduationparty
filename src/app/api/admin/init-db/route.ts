@@ -1,10 +1,8 @@
-import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import { NextRequest } from "next/server";
+import { getPool } from "@/db";
 
-const globalForDb = globalThis as typeof globalThis & {
-  __cuGradPool?: Pool;
-  __cuDbReady?: Promise<void>;
-};
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const STATEMENTS = [
   `CREATE EXTENSION IF NOT EXISTS "pgcrypto";`,
@@ -84,53 +82,24 @@ const STATEMENTS = [
   `INSERT INTO presentation_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING;`,
 ];
 
-function createPool(): Pool {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    throw new Error(
-      "DATABASE_URL is not configured — set it in your environment variables",
-    );
-  }
-  return new Pool({
-    connectionString: databaseUrl,
-    max: 10,
-    ssl:
-      process.env.NODE_ENV === "production" && !databaseUrl.includes("127.0.0.1")
-        ? { rejectUnauthorized: false }
-        : undefined,
-  });
-}
-
-export function getPool(): Pool {
-  globalForDb.__cuGradPool = globalForDb.__cuGradPool ?? createPool();
-  return globalForDb.__cuGradPool;
-}
-
-export async function ensureDbReady(): Promise<void> {
-  if (globalForDb.__cuDbReady) return globalForDb.__cuDbReady;
-  const p = getPool();
-  globalForDb.__cuDbReady = (async () => {
-    for (const sql of STATEMENTS) {
+export async function GET(_req: NextRequest) {
+  const results: { statement: number; ok: boolean; error?: string }[] = [];
+  try {
+    const pool = getPool();
+    for (let i = 0; i < STATEMENTS.length; i++) {
+      const sql = STATEMENTS[i];
       try {
-        await p.query(sql);
-      } catch (e) {
-        console.error("Auto-bootstrap statement warning:", e);
+        await pool.query(sql);
+        results.push({ statement: i, ok: true });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        results.push({ statement: i, ok: false, error: msg });
       }
     }
-  })();
-  return globalForDb.__cuDbReady;
+    const allOk = results.every((r) => r.ok);
+    return Response.json({ ok: allOk, results });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return Response.json({ ok: false, fatal: msg, results });
+  }
 }
-
-function getDb(): NodePgDatabase {
-  return drizzle(getPool());
-}
-
-export const db = new Proxy({} as NodePgDatabase, {
-  get(_target, prop) {
-    const real = getDb() as unknown as Record<string | symbol, unknown>;
-    const value = real[prop as string | symbol];
-    return typeof value === "function"
-      ? (value as (...args: unknown[]) => unknown).bind(real)
-      : value;
-  },
-});
