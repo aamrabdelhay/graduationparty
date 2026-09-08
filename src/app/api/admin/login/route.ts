@@ -7,7 +7,6 @@ import {
   recordLoginAttempt,
   sessionCookieValue,
 } from "@/lib/auth";
-import { listUnacknowledgedDiscarded } from "@/lib/drafts";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
@@ -48,12 +47,11 @@ export async function POST(req: NextRequest) {
 
     const token = await createSession(ip);
     // Reminder data: unsaved changes from previous sessions.
-    const discarded = await listUnacknowledgedDiscarded();
 
-    const res = NextResponse.json({
-      ok: true,
-      previousUnsaved: discarded.length,
-    });
+   const res = NextResponse.json({
+  ok: true,
+  previousUnsaved: 0,
+});
     const c = sessionCookieValue(token);
     res.cookies.set(c.name, c.value, c);
     return res;
