@@ -35,10 +35,12 @@ type DatabaseErrorLike = Error & {
   routine?: string;
   severity?: string;
   where?: string;
+  cause?: unknown;
 };
 
-function serializeError(error: unknown) {
+function serializeError(error: unknown, depth = 0): Record<string, unknown> {
   const e = error as DatabaseErrorLike;
+  const cause = depth < 3 && e?.cause ? serializeError(e.cause, depth + 1) : null;
   return {
     message: e instanceof Error ? e.message : String(e),
     code: e.code ?? null,
@@ -51,6 +53,7 @@ function serializeError(error: unknown) {
     routine: e.routine ?? null,
     severity: e.severity ?? null,
     where: e.where ?? null,
+    cause,
   };
 }
 
@@ -81,7 +84,8 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: true, state: snapshot });
   } catch (error) {
     const details = serializeError(error);
-    console.error("Presentation action failed", details);
+    const errorText = JSON.stringify(details);
+    console.error("Presentation action failed:", errorText);
     return Response.json(
       {
         ok: false,
