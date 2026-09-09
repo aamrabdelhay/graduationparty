@@ -86,7 +86,6 @@ body {
   scrollbar-color: rgba(212, 175, 55, 0.4) transparent;
 }
 
-/* Gold gradient text */
 .gold-text {
   background: linear-gradient(115deg, #f6e7a8 10%, #d4af37 40%, #f9edc0 55%, #b08e1f 80%);
   background-size: 200% auto;
@@ -98,7 +97,6 @@ body {
   animation: shimmer 4s linear infinite;
 }
 
-/* Ornamental luxury frame (graduation plaque) */
 .lux-frame {
   position: relative;
   border: 1px solid rgba(212, 175, 55, 0.55);
@@ -131,7 +129,6 @@ body {
   border-inline-start: 0;
 }
 
-/* Buttons */
 .btn-gold {
   background: linear-gradient(140deg, #f0d97c, #d4af37 45%, #a9821a);
   color: #17110a;
@@ -177,19 +174,24 @@ body {
   backdrop-filter: blur(10px);
 }
 
-/* Photo paper effect for childhood shots */
 .photo-old {
   filter: sepia(0.35) saturate(0.85) contrast(0.98) brightness(0.97);
+  transition: opacity 900ms cubic-bezier(0.22, 1, 0.36, 1), filter 900ms ease, transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, filter, transform;
 }
 
-/* Shimmer skeleton */
+/* The graduation image is the adjacent sibling of the childhood image in the projector. */
+.photo-old ~ img {
+  transition: opacity 900ms cubic-bezier(0.22, 1, 0.36, 1), transform 900ms cubic-bezier(0.22, 1, 0.36, 1), filter 900ms ease;
+  will-change: opacity, transform, filter;
+}
+
 .skel {
   background: linear-gradient(100deg, rgba(255,255,255,0.04) 30%, rgba(212,175,55,0.14) 50%, rgba(255,255,255,0.04) 70%);
   background-size: 200% 100%;
   animation: shimmer 1.8s linear infinite;
 }
 
-/* Dust particles on hero */
 .dust {
   position: absolute;
   border-radius: 9999px;
@@ -204,7 +206,6 @@ body {
   100% { transform: translateY(-90vh) translateX(6vw); opacity: 0; }
 }
 
-/* Confetti-ish gold sparks for success */
 .spark {
   position: absolute;
   width: 8px;
