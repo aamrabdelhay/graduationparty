@@ -24,6 +24,7 @@ import {
   Timer,
   Zap,
 } from "lucide-react";
+import SmokeCanvas from "@/components/screen/SmokeCanvas";
 import {
   AdminParticipant,
   DisplayTokenRow,
@@ -49,6 +50,31 @@ interface Props {
   showToast: (msg: string) => void;
 }
 
+type PreviewPhase = "childhood" | "smoke" | "adult" | "name" | "done";
+
+function phaseAtElapsed(pres: PresState, elapsedMs: number): PreviewPhase {
+  if (pres.status !== "RUNNING" || !pres.participant) return "done";
+  if (pres.isPaused) return "childhood";
+
+  const childhoodEnd = pres.childhoodDuration;
+  const smokeEnd = childhoodEnd + pres.smokeDuration;
+  const adultEnd = smokeEnd + pres.adultDuration;
+  const nameEnd = adultEnd + pres.nameAnimationDuration;
+
+  if (elapsedMs < childhoodEnd) return "childhood";
+  if (elapsedMs < smokeEnd) return "smoke";
+  if (elapsedMs < adultEnd) return "adult";
+  if (elapsedMs < nameEnd) return "name";
+  return "done";
+}
+
+function serverElapsedMs(phaseStartedAt: string | null) {
+  if (!phaseStartedAt) return 0;
+  const started = Date.parse(phaseStartedAt);
+  if (!Number.isFinite(started)) return 0;
+  return Math.max(0, Date.now() - started);
+}
+
 export default function Presenter({
   pres,
   queue,
@@ -70,6 +96,7 @@ export default function Presenter({
     nameAnimationDuration: 1800,
   });
   const [tokenBusy, setTokenBusy] = useState(false);
+  const [previewPhase, setPreviewPhase] = useState<PreviewPhase>("done");
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -87,6 +114,18 @@ export default function Presenter({
     // Only sync when a fresh presentation state arrives from the server.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pres?.sequenceVersion]);
+
+  useEffect(() => {
+    if (!pres || pres.status !== "RUNNING" || !pres.participant) {
+      setPreviewPhase(pres?.status === "FINISHED" ? "done" : "childhood");
+      return;
+    }
+
+    const tick = () => setPreviewPhase(phaseAtElapsed(pres, serverElapsedMs(pres.phaseStartedAt)));
+    tick();
+    const timer = window.setInterval(tick, 120);
+    return () => window.clearInterval(timer);
+  }, [pres]);
 
   const currentIdx = pres?.participant
     ? queue.findIndex((p) => p.id === pres.participant!.id)
@@ -133,6 +172,8 @@ export default function Presenter({
   }
 
   const running = pres?.status === "RUNNING";
+  const previewShowAdult = previewPhase === "adult" || previewPhase === "name" || previewPhase === "done";
+  const previewShowName = previewPhase === "name" || previewPhase === "done";
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -149,16 +190,49 @@ export default function Presenter({
           {pres?.participant ? (
             <div className="animate-fade-in">
               <div className="lux-frame lux-corner mx-auto aspect-[4/5] w-full max-w-60 overflow-hidden rounded-2xl">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={pres.participant.graduationImageUrl ?? ""}
-                  alt={pres.participant.name}
-                  className="h-full w-full object-cover"
-                />
+                <div className="relative h-full w-full overflow-hidden rounded-xl bg-night-900">
+                  {pres.participant.childhoodImageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={`preview-childhood-${pres.sequenceVersion}-${pres.participant.id}`}
+                      src={pres.participant.childhoodImageUrl}
+                      alt={pres.participant.name}
+                      className={`photo-old absolute inset-0 h-full w-full object-cover ${previewShowAdult ? "opacity-0" : "opacity-100"}`}
+                    />
+                  )}
+                  {pres.participant.graduationImageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={`preview-adult-${pres.sequenceVersion}-${pres.participant.id}`}
+                      src={pres.participant.graduationImageUrl}
+                      alt={pres.participant.name}
+                      className={`absolute inset-0 h-full w-full object-cover ${previewShowAdult ? "opacity-100" : "opacity-0"}`}
+                    />
+                  )}
+                  <div className="pointer-events-none absolute inset-0 z-10 shadow-[inset_0_0_50px_14px_rgba(0,0,0,0.5)]" />
+                  {previewPhase === "smoke" && !pres.isPaused && (
+                    <SmokeCanvas
+                      key={`preview-smoke-${pres.sequenceVersion}`}
+                      durationMs={pres.smokeDuration}
+                      onMidpoint={() => undefined}
+                      onDone={() => undefined}
+                    />
+                  )}
+                </div>
               </div>
-              <h2 className="mt-5 font-display text-3xl font-bold">
-                <span className="gold-text">{pres.participant.name}</span>
-              </h2>
+
+              <div className="mt-5 min-h-14">
+                {previewShowName && (
+                  <div key={`preview-name-${pres.sequenceVersion}`} className="animate-name-reveal relative">
+                    <div className="lux-frame inline-block rounded-2xl px-6 py-2.5 sm:px-8">
+                      <span className="font-display text-2xl font-bold">
+                        <span className="gold-text">{pres.participant.name}</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <p className="mt-1 text-[11px] text-ivory/45">
                 الترتيب {currentIdx + 1 >= 0 ? currentIdx + 1 : "—"} من {queue.length}
               </p>
@@ -303,7 +377,7 @@ export default function Presenter({
             <Link2 className="size-4" /> رابط شاشة البروجكتور
           </p>
           <p className="mb-4 text-[11px] leading-relaxed text-ivory/45">
-            الشاشة تشوف اللقطة الحالية فقط (الصورة والاسم) — بدون أي بيانات تانية.
+            الشاشة تعرض نفس تسلسل البروجكتور: صورة الطفولة، الدخان، صورة التخرج، ثم الاسم.
             افتح الرابط ده على جهاز البروجكتور أو الشير سكرين.
           </p>
           {screenUrl ? (
