@@ -122,12 +122,15 @@ export async function normalizeImage(buffer: Buffer) {
 /* --------------------- Graduation cap composition ---------------------- */
 
 function capSvg(w: number, h: number): string {
-  const cw = w * 0.56;
-  const ch = cw * 0.46;
-  const tilt = -5;
-  const bandH = cw * 0.24;
-  const tasselX = cw * 0.52;
-  return `<svg width="${cw + 220}" height="${ch + bandH + 260}" viewBox="-110 -30 ${cw + 220} ${ch + bandH + 320}" xmlns="http://www.w3.org/2000/svg">
+  // Keep the mortarboard proportionally smaller and tighter around the head.
+  // The previous version was intentionally oversized, which made the cap float
+  // beyond the hairline on many portrait crops.
+  const cw = w * 0.46;
+  const ch = cw * 0.42;
+  const tilt = -4;
+  const bandH = cw * 0.19;
+  const tasselX = cw * 0.56;
+  return `<svg width="${cw}" height="${ch + bandH + 130}" viewBox="-70 -20 ${cw + 140} ${ch + bandH + 170}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="board" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#2b2b31"/>
@@ -140,18 +143,18 @@ function capSvg(w: number, h: number): string {
       <stop offset="1" stop-color="#a07c1c"/>
     </linearGradient>
     <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="${Math.max(3, w * 0.004)}"/>
+      <feGaussianBlur stdDeviation="${Math.max(2, w * 0.003)}"/>
     </filter>
   </defs>
   <g transform="rotate(${tilt} ${cw / 2} ${ch / 2})">
-    <ellipse cx="${cw / 2}" cy="${ch + bandH + 40}" rx="${cw * 0.42}" ry="${bandH * 0.5}" fill="#000" opacity="0.35" filter="url(#soft)"/>
-    <path d="M ${cw * 0.10} ${ch * 0.92} Q ${cw / 2} ${ch * 1.18} ${cw * 0.90} ${ch * 0.92} L ${cw * 0.90} ${ch + bandH * 0.7} Q ${cw / 2} ${ch + bandH} ${cw * 0.10} ${ch + bandH * 0.7} Z" fill="#101014"/>
-    <polygon points="${cw / 2},0 ${cw},${ch * 0.52} ${cw / 2},${ch} 0,${ch * 0.52}" fill="url(#board)" stroke="#3c3c46" stroke-width="${w * 0.002}"/>
-    <polygon points="${cw / 2},0 ${cw},${ch * 0.52} ${cw / 2},${ch} 0,${ch * 0.52}" fill="#ffffff" opacity="0.05"/>
-    <circle cx="${cw / 2}" cy="${ch * 0.52}" r="${cw * 0.028}" fill="url(#gold)"/>
-    <path d="M ${cw / 2} ${ch * 0.52} Q ${tasselX} ${ch * 0.9} ${cw * 0.97} ${ch + bandH * 1.1}" stroke="url(#gold)" stroke-width="${w * 0.006}" fill="none" stroke-linecap="round"/>
-    <rect x="${cw * 0.955}" y="${ch + bandH * 1.02}" width="${w * 0.014}" height="${w * 0.05}" rx="${w * 0.007}" fill="url(#gold)"/>
-    <path d="M ${cw * 0.94} ${ch + bandH * 1.52} h ${w * 0.045} l -${w * 0.011} ${w * 0.055} h -${w * 0.023} Z" fill="url(#gold)"/>
+    <ellipse cx="${cw / 2}" cy="${ch + bandH + 25}" rx="${cw * 0.38}" ry="${bandH * 0.38}" fill="#000" opacity="0.28" filter="url(#soft)"/>
+    <path d="M ${cw * 0.12} ${ch * 0.91} Q ${cw / 2} ${ch * 1.14} ${cw * 0.88} ${ch * 0.91} L ${cw * 0.88} ${ch + bandH * 0.66} Q ${cw / 2} ${ch + bandH} ${cw * 0.12} ${ch + bandH * 0.66} Z" fill="#101014"/>
+    <polygon points="${cw / 2},0 ${cw},${ch * 0.50} ${cw / 2},${ch} 0,${ch * 0.50}" fill="url(#board)" stroke="#3c3c46" stroke-width="${w * 0.0018}"/>
+    <polygon points="${cw / 2},0 ${cw},${ch * 0.50} ${cw / 2},${ch} 0,${ch * 0.50}" fill="#ffffff" opacity="0.05"/>
+    <circle cx="${cw / 2}" cy="${ch * 0.50}" r="${cw * 0.026}" fill="url(#gold)"/>
+    <path d="M ${cw / 2} ${ch * 0.50} Q ${tasselX} ${ch * 0.86} ${cw * 0.965} ${ch + bandH * 1.02}" stroke="url(#gold)" stroke-width="${w * 0.005}" fill="none" stroke-linecap="round"/>
+    <rect x="${cw * 0.95}" y="${ch + bandH * 0.96}" width="${w * 0.012}" height="${w * 0.045}" rx="${w * 0.006}" fill="url(#gold)"/>
+    <path d="M ${cw * 0.935} ${ch + bandH * 1.39} h ${w * 0.04} l -${w * 0.01} ${w * 0.05} h -${w * 0.02} Z" fill="url(#gold)"/>
   </g>
 </svg>`;
 }
@@ -171,9 +174,21 @@ async function generateProcedural(buffer: Buffer): Promise<Buffer> {
   const w = meta.width ?? 1200;
   const h = meta.height ?? 1200;
   const svg = Buffer.from(capSvg(w, h));
-  const top = Math.round(h * 0.05);
+
+  // Keep the cap close to the top-center head area instead of pushing it down
+  // into the forehead on shorter portrait crops.
+  const top = Math.round(h * 0.018);
+  const capWidth = w * 0.46;
+  const capCanvasWidth = capWidth;
+
   return base
-    .composite([{ input: svg, top, left: Math.round((w - w * 0.56 - 220) / 2) }])
+    .composite([
+      {
+        input: svg,
+        top,
+        left: Math.round((w - capCanvasWidth) / 2),
+      },
+    ])
     .jpeg({ quality: 88, mozjpeg: true })
     .toBuffer();
 }
@@ -194,7 +209,15 @@ async function generateWithGemini(buffer: Buffer): Promise<Buffer> {
             {
               parts: [
                 {
-                  text: "Edit this photo: add an elegant black graduation mortarboard cap with a golden tassel on the person's head, fitted naturally to the head's size, angle and position. Keep everything else identical.",
+                  text: [
+                    "Edit this photo by adding only a realistic black graduation mortarboard with a subtle golden tassel.",
+                    "First detect the person's actual head position, head width, hairline, face angle, and perspective.",
+                    "Place the cap centered on the crown of the person's head; the cap band must sit naturally at the hairline and follow the same perspective as the head.",
+                    "Scale the cap to fit the head precisely: it should slightly exceed the head width but never float outside it, cover the forehead, or hover above the hair.",
+                    "Match the photo's lighting, shadows, depth, rotation, and camera angle.",
+                    "Keep the person's face, hair, body, clothes, background, crop, and every other detail unchanged.",
+                    "Do not redraw or beautify the person. Do not move the head. Do not change facial features.",
+                  ].join(" "),
                 },
                 { inlineData: { mimeType: "image/jpeg", data: buffer.toString("base64") } },
               ],
