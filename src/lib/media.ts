@@ -1,3 +1,4 @@
+import { put, del } from "@vercel/blob";
 import sharp from "sharp";
 import crypto from "crypto";
 import path from "path";
@@ -6,8 +7,11 @@ import fs from "fs/promises";
 
 /**
  * Storage abstraction.
- * Production (Vercel): set BLOB_READ_WRITE_TOKEN -> files go to object storage.
- * Local development fallback: files are written under public/uploads.
+ * Production (Vercel): BLOB_READ_WRITE_TOKEN is required and files go to
+ * Vercel Blob. We deliberately do NOT fall back to local disk on Vercel:
+ * Vercel's filesystem is ephemeral and a silent fallback makes uploads look
+ * successful while losing the asset later.
+ * Local development: files are written under uploads/.
  */
 
 const ACCEPTED = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -21,16 +25,12 @@ export function validateImage(file: { type: string; size: number }): string | nu
 }
 
 /**
- * Local disk fallback root. Intentionally OUTSIDE `public/` because
- * `next start` only serves files present in public/ at build time.
- * Files here are streamed through /api/media/[sub]/[file].
- *
- * On Vercel the project directory is read-only, so without object storage
- * we degrade to the per-instance /tmp (ephemeral) — set
- * BLOB_READ_WRITE_TOKEN in production for durable uploads.
+ * Local disk fallback root. On Vercel this is /tmp only for backwards
+ * compatibility with already-created local URLs; new production uploads
+ * are never written here.
  */
 export function uploadsRoot() {
-  if (process.env.VERCEL && !process.env.BLOB_READ_WRITE_TOKEN) {
+  if (process.env.VERCEL) {
     return path.join(os.tmpdir(), "cu-grad-uploads");
   }
   return path.join(process.cwd(), "uploads");
@@ -39,8 +39,9 @@ export function uploadsRoot() {
 function localPathForUrl(url: string): string | null {
   if (url.startsWith("/api/media/")) {
     const rel = decodeURIComponent(url.slice("/api/media/".length));
-    const full = path.join(uploadsRoot(), rel);
-    if (!full.startsWith(uploadsRoot())) return null;
+    const root = path.resolve(uploadsRoot());
+    const full = path.resolve(root, rel);
+    if (full !== root && !full.startsWith(`${root}${path.sep}`)) return null;
     return full;
   }
   if (url.startsWith("/uploads/")) {
@@ -56,23 +57,26 @@ export async function storeImage(
 ): Promise<string> {
   const key = `${subdir}/${crypto.randomUUID()}.${ext}`;
   const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (token) {
+
+  if (process.env.VERCEL) {
+    if (!token) {
+      throw new Error("BLOB_READ_WRITE_TOKEN is not configured in the Vercel environment");
+    }
+
     try {
-      const mod = (await (new Function(
-        "return import('@vercel/blob')",
-      )() as Promise<any>)) as {
-        put: (k: string, b: Buffer, o: Record<string, unknown>) => Promise<{ url: string }>;
-      };
-      const res = await mod.put(key, buffer, {
+      const res = await put(key, buffer, {
         access: "public",
         contentType: "image/jpeg",
         token,
+        addRandomSuffix: false,
       });
       return res.url;
-    } catch {
-      // Fall through to local disk.
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Vercel Blob upload failed: ${message}`);
     }
   }
+
   const full = path.join(uploadsRoot(), key);
   await fs.mkdir(path.dirname(full), { recursive: true });
   await fs.writeFile(full, buffer);
@@ -84,14 +88,10 @@ export async function deleteImageByUrl(url: string | null | undefined) {
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (token && /^https?:\/\//.test(url)) {
     try {
-      const mod = (await (new Function(
-        "return import('@vercel/blob')",
-      )() as Promise<any>)) as {
-        del: (u: string, o: Record<string, unknown>) => Promise<void>;
-      };
-      await mod.del(url, { token });
+      await del(url, { token });
       return;
-    } catch {
+    } catch (error) {
+      console.error("Vercel Blob delete failed", error);
       return;
     }
   }
@@ -122,7 +122,7 @@ export async function normalizeImage(buffer: Buffer) {
 /* --------------------- Graduation cap composition ---------------------- */
 
 function capSvg(w: number, h: number): string {
-  const cw = w * 0.56; // cap board width
+  const cw = w * 0.56;
   const ch = cw * 0.46;
   const tilt = -5;
   const bandH = cw * 0.24;
@@ -156,13 +156,6 @@ function capSvg(w: number, h: number): string {
 </svg>`;
 }
 
-/**
- * AI graduation image generation.
- * Provider chain:
- *  1. GEMINI_API_KEY configured -> Gemini image-edit model.
- *  2. Otherwise -> deterministic procedural mortarboard composition
- *     (offline fallback so submissions never get blocked by an AI outage).
- */
 export async function generateGraduationImage(adultBuffer: Buffer): Promise<Buffer> {
   if (process.env.GEMINI_API_KEY) {
     return generateWithGemini(adultBuffer);
@@ -178,8 +171,6 @@ async function generateProcedural(buffer: Buffer): Promise<Buffer> {
   const w = meta.width ?? 1200;
   const h = meta.height ?? 1200;
   const svg = Buffer.from(capSvg(w, h));
-  // Heuristic head placement: portrait subjects typically occupy the
-  // upper-centre of the frame, so the board sits right above it.
   const top = Math.round(h * 0.05);
   return base
     .composite([{ input: svg, top, left: Math.round((w - w * 0.56 - 220) / 2) }])
