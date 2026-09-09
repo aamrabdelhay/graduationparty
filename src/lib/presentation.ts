@@ -259,9 +259,14 @@ export async function applyAction(
     currentParticipantId: patch.currentParticipantId ?? state.currentParticipantId,
     nextParticipantId: patch.nextParticipantId ?? state.nextParticipantId,
     queuePosition: patch.queuePosition ?? state.queuePosition,
+    playbackMode: patch.playbackMode ?? state.playbackMode,
     isPaused: patch.isPaused ?? state.isPaused,
     sequenceVersion: patch.sequenceVersion ?? state.sequenceVersion,
     phaseStartedAt: patch.phaseStartedAt ?? state.phaseStartedAt ?? null,
+    childhoodDuration: patch.childhoodDuration ?? state.childhoodDuration,
+    smokeDuration: patch.smokeDuration ?? state.smokeDuration,
+    adultDuration: patch.adultDuration ?? state.adultDuration,
+    nameAnimationDuration: patch.nameAnimationDuration ?? state.nameAnimationDuration,
     updatedAt: patch.updatedAt ?? now,
   });
 
