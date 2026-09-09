@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { db } from "@/db";
+import { db, ensureDbReady } from "@/db";
 import { displayTokens, participants, presentationState } from "@/db/schema";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import crypto from "crypto";
@@ -16,8 +16,6 @@ export const bus =
 bus.setMaxListeners(200);
 
 /* ------------------------------ State row ------------------------------ */
-
-import { ensureDbReady } from "@/db";
 
 export async function ensureState() {
   await ensureDbReady();
@@ -57,14 +55,20 @@ export async function publicSnapshot() {
     childhoodImageUrl: string | null;
     graduationImageUrl: string | null;
   } | null = null;
+  let nextParticipant: {
+    id: string;
+    name: string;
+    childhoodImageUrl: string | null;
+    graduationImageUrl: string | null;
+  } | null = null;
+
+  const queue = await getQueue();
+  const currentIndex = state.currentParticipantId
+    ? queue.findIndex((p) => p.id === state.currentParticipantId)
+    : -1;
 
   if (state.currentParticipantId) {
-    const rows = await db
-      .select()
-      .from(participants)
-      .where(eq(participants.id, state.currentParticipantId))
-      .limit(1);
-    const p = rows[0];
+    const p = queue.find((row) => row.id === state.currentParticipantId);
     if (p) {
       participant = {
         id: p.id,
@@ -73,6 +77,16 @@ export async function publicSnapshot() {
         graduationImageUrl: p.graduationImageUrl ?? p.adultImageUrl,
       };
     }
+  }
+
+  const next = currentIndex >= 0 ? queue[currentIndex + 1] : queue[0];
+  if (next) {
+    nextParticipant = {
+      id: next.id,
+      name: next.fullName,
+      childhoodImageUrl: next.childhoodImageUrl,
+      graduationImageUrl: next.graduationImageUrl ?? next.adultImageUrl,
+    };
   }
 
   return {
@@ -88,6 +102,7 @@ export async function publicSnapshot() {
     adultDuration: state.adultDuration,
     nameAnimationDuration: state.nameAnimationDuration,
     participant,
+    nextParticipant,
   };
 }
 
