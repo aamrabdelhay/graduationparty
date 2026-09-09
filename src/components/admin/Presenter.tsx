@@ -129,6 +129,8 @@ export default function Presenter({
   const currentIdx = pres?.participant
     ? queue.findIndex((p) => p.id === pres.participant!.id)
     : -1;
+  const nextParticipant =
+    currentIdx >= 0 ? queue[currentIdx + 1] ?? null : queue[0] ?? null;
   const activeToken = tokens.find((t) => !t.revokedAt);
   const screenUrl = activeToken ? `${origin}/screen?token=${activeToken.token}` : null;
   const running = pres?.status === "RUNNING";
@@ -176,7 +178,7 @@ export default function Presenter({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
       <section className="space-y-5 lg:col-span-3">
-        <div className="card-lux lux-frame rounded-3xl p-6 text-center">
+        <div className="card-lux lux-frame relative rounded-3xl p-6 text-center">
           <p className="mb-4 flex items-center justify-center gap-2 text-xs font-black tracking-wide text-gold-300">
             <MonitorPlay className="size-4" />
             على الشاشة الآن
@@ -185,45 +187,52 @@ export default function Presenter({
 
           {pres?.participant ? (
             <div className="animate-fade-in">
-              <div className="lux-frame lux-corner mx-auto aspect-[4/5] w-full max-w-60 overflow-hidden rounded-2xl">
-                <div className="relative h-full w-full overflow-hidden rounded-xl bg-night-900">
-                  {pres.participant.childhoodImageUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={`preview-childhood-${pres.sequenceVersion}-${pres.participant.id}`}
-                      src={pres.participant.childhoodImageUrl}
-                      alt={pres.participant.name}
-                      className={`photo-old absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-in-out ${previewShowAdult ? "opacity-0" : "opacity-100"}`}
-                    />
-                  )}
-                  {pres.participant.graduationImageUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={`preview-adult-${pres.sequenceVersion}-${pres.participant.id}`}
-                      src={pres.participant.graduationImageUrl}
-                      alt={pres.participant.name}
-                      className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-in-out ${previewShowAdult ? "opacity-100" : "opacity-0"}`}
-                    />
-                  )}
-                  <div className="pointer-events-none absolute inset-0 z-10 shadow-[inset_0_0_50px_14px_rgba(0,0,0,0.5)]" />
-                  {previewPhase === "smoke" && !pres.isPaused && (
-                    <SmokeCanvas
-                      key={`preview-smoke-${pres.sequenceVersion}`}
-                      durationMs={pres.smokeDuration}
-                      onMidpoint={() => undefined}
-                      onDone={() => undefined}
-                    />
-                  )}
+              <div className="relative mx-auto w-full max-w-60 pt-6">
+                <div className="absolute top-0 right-1/2 z-30 flex size-12 translate-x-1/2 items-center justify-center rounded-full border border-gold-500/65 bg-night-900 shadow-[0_0_28px_-6px_rgba(212,175,55,0.5)]">
+                  <GraduationCap className="size-6 text-gold-400" />
+                </div>
+                <div className="lux-frame lux-corner aspect-[4/5] w-full overflow-hidden rounded-2xl">
+                  <div className="relative h-full w-full overflow-hidden rounded-xl bg-night-900">
+                    {pres.participant.childhoodImageUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={`preview-childhood-${pres.sequenceVersion}-${pres.participant.id}`}
+                        src={pres.participant.childhoodImageUrl}
+                        alt={pres.participant.name}
+                        className={`photo-old absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-in-out ${previewShowAdult ? "opacity-0" : "opacity-100"}`}
+                      />
+                    )}
+                    {pres.participant.graduationImageUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={`preview-adult-${pres.sequenceVersion}-${pres.participant.id}`}
+                        src={pres.participant.graduationImageUrl}
+                        alt={pres.participant.name}
+                        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-in-out ${previewShowAdult ? "opacity-100" : "opacity-0"}`}
+                      />
+                    )}
+                    <div className="pointer-events-none absolute inset-0 z-10 shadow-[inset_0_0_50px_14px_rgba(0,0,0,0.5)]" />
+                    {previewPhase === "smoke" && !pres.isPaused && (
+                      <SmokeCanvas
+                        key={`preview-smoke-${pres.sequenceVersion}`}
+                        durationMs={pres.smokeDuration}
+                        onMidpoint={() => undefined}
+                        onDone={() => undefined}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="mt-5 min-h-14">
                 {previewShowName && (
                   <div key={`preview-name-${pres.sequenceVersion}`} className="animate-name-reveal relative">
-                    <div className="lux-frame inline-block rounded-2xl px-6 py-2.5 sm:px-8">
+                    <div className="lux-frame relative inline-block rounded-2xl px-8 py-2.5">
                       <span className="font-display text-2xl font-bold">
                         <span className="gold-text">{pres.participant.name}</span>
                       </span>
+                      <span className="absolute top-1/2 -right-2.5 size-2.5 -translate-y-1/2 rotate-45 border border-gold-500/60 bg-night-900" />
+                      <span className="absolute top-1/2 -left-2.5 size-2.5 -translate-y-1/2 rotate-45 border border-gold-500/60 bg-night-900" />
                     </div>
                   </div>
                 )}
@@ -243,6 +252,28 @@ export default function Presenter({
                 {pres?.status === "FINISHED" ? "اضغط «إعادة من الأول» لتشغيل العرض مرة أخرى" : "اضغط «بدء العرض» لتظهر أول لقطة على البروجكتور"}
               </p>
             </div>
+          )}
+
+          {pres?.participant && pres.status === "RUNNING" && nextParticipant && (
+            <aside
+              className="absolute bottom-4 left-4 z-30 w-[min(230px,46%)] text-right"
+              aria-label="الخريج التالي"
+            >
+              <div className="rounded-2xl border border-gold-500/25 bg-night-950/90 p-2.5 shadow-[0_0_28px_-12px_rgba(212,175,55,0.45)] backdrop-blur-md">
+                <div className="mb-1.5 text-[9px] font-black tracking-wide text-gold-300/80">التالي</div>
+                <div className="flex items-center gap-2.5">
+                  <div className="size-11 shrink-0 overflow-hidden rounded-xl border border-gold-500/25 bg-night-900">
+                    {nextParticipant.childhoodImageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={nextParticipant.childhoodImageUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-gold-500/40"><GraduationCap className="size-5" /></div>
+                    )}
+                  </div>
+                  <p className="min-w-0 truncate font-display text-sm font-bold text-gold-100">{nextParticipant.fullName}</p>
+                </div>
+              </div>
+            </aside>
           )}
         </div>
 
