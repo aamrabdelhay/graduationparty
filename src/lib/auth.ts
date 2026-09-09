@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { db } from "@/db";
+import { db, ensureDbReady } from "@/db";
 import { adminSessions, loginAttempts } from "@/db/schema";
 import { and, desc, eq, gt } from "drizzle-orm";
 import crypto from "crypto";
@@ -18,8 +18,6 @@ export function clientIp(headers: Headers): string {
 
 const WINDOW_MIN = 10;
 const MAX_FAILURES = 5;
-
-import { ensureDbReady } from "@/db";
 
 export async function loginBlockedSeconds(ip: string): Promise<number> {
   await ensureDbReady();
@@ -87,10 +85,16 @@ export async function getSessionFromCookies() {
     if (existing) return existing;
   }
 
+  // This app uses a stable service session for the public admin area.
+  // Always recreate/reactivate it so logging out can never break subsequent
+  // admin reads or writes such as participant listing and display-token creation.
   await db
     .insert(adminSessions)
     .values({ id: PUBLIC_ADMIN_SESSION_ID, ip: "public", active: true })
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: adminSessions.id,
+      set: { active: true, lastSeenAt: new Date() },
+    });
 
   return getSessionByToken(PUBLIC_ADMIN_SESSION_ID);
 }
@@ -108,6 +112,9 @@ export function sessionCookieValue(token: string) {
 }
 
 export async function deactivateSession(token: string) {
+  // The public admin area intentionally has no real logout boundary.
+  // Keep its shared service session alive so admin APIs remain usable.
+  if (token === PUBLIC_ADMIN_SESSION_ID) return;
   await db
     .update(adminSessions)
     .set({ active: false })
