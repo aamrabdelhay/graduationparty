@@ -7,14 +7,8 @@ import {
 } from "@/lib/media";
 
 export const runtime = "nodejs";
-// AI image processing can take a while with an external provider.
 export const maxDuration = 60;
 
-/**
- * Public staging endpoint (participant flow + admin replace flow).
- * Validates -> normalizes -> stores original. For adult photos it also runs
- * the AI graduation-cap pipeline and stores a separate generated asset.
- */
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
@@ -45,15 +39,18 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         gradStatus = "FAILED";
         gradError = e instanceof Error ? e.message : "فشل توليد صورة التخرج";
-        // Never block submission: original image stays usable.
       }
     }
 
     return Response.json({ ok: true, originalUrl, graduationUrl, gradStatus, gradError });
   } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
     console.error("stage error", e);
     return Response.json(
-      { ok: false, error: "حدث خطأ أثناء تجهيز الصورة" },
+      {
+        ok: false,
+        error: message || "حدث خطأ أثناء تجهيز الصورة",
+      },
       { status: 500 },
     );
   }
