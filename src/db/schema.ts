@@ -126,8 +126,14 @@ export const drafts = pgTable(
 export const presentationState = pgTable("presentation_state", {
   id: integer("id").primaryKey(),
   status: presentationStatusEnum("status").notNull().default("IDLE"),
-  currentParticipantId: uuid("current_participant_id"),
-  nextParticipantId: uuid("next_participant_id"),
+  currentParticipantId: uuid("current_participant_id").references(
+    () => participants.id,
+    { onDelete: "set null" },
+  ),
+  nextParticipantId: uuid("next_participant_id").references(
+    () => participants.id,
+    { onDelete: "set null" },
+  ),
   queuePosition: integer("queue_position").notNull().default(0),
   playbackMode: text("playback_mode").notNull().default("manual"),
   isPaused: boolean("is_paused").notNull().default(false),
@@ -139,9 +145,7 @@ export const presentationState = pgTable("presentation_state", {
   nameAnimationDuration: integer("name_animation_duration")
     .notNull()
     .default(1800),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const displayTokens = pgTable("display_tokens", {
