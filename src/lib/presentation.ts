@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { displayTokens, participants, presentationState } from "@/db/schema";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import crypto from "crypto";
+import { updatePresentationStateDirect } from "@/lib/presentation-direct";
 
 /* ------------------------------ Event bus ------------------------------ */
 
@@ -203,7 +204,6 @@ export async function applyAction(
       const fresh = await getQueue();
       if (id === state.currentParticipantId) {
         if (fresh.length === 0 || idxOld >= fresh.length) {
-          // Skipped the last remaining participant -> the show is over.
           patch.status = "FINISHED";
           patch.currentParticipantId = null;
           patch.nextParticipantId = null;
@@ -254,7 +254,17 @@ export async function applyAction(
     patch.phaseStartedAt = patch.phaseStartedAt ?? now;
   }
 
-  await db.update(presentationState).set(patch).where(eq(presentationState.id, 1));
+  await updatePresentationStateDirect({
+    status: patch.status ?? state.status,
+    currentParticipantId: patch.currentParticipantId ?? state.currentParticipantId,
+    nextParticipantId: patch.nextParticipantId ?? state.nextParticipantId,
+    queuePosition: patch.queuePosition ?? state.queuePosition,
+    isPaused: patch.isPaused ?? state.isPaused,
+    sequenceVersion: patch.sequenceVersion ?? state.sequenceVersion,
+    phaseStartedAt: patch.phaseStartedAt ?? state.phaseStartedAt ?? null,
+    updatedAt: patch.updatedAt ?? now,
+  });
+
   return broadcast();
 }
 
