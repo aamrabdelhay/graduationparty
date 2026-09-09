@@ -42,18 +42,44 @@ async function sendPresentationAction(action: string) {
   }
 }
 
+function getServerElapsedMs(phaseStartedAt: string | null) {
+  if (!phaseStartedAt) return 0;
+  const started = Date.parse(phaseStartedAt);
+  if (!Number.isFinite(started)) return 0;
+  return Math.max(0, Date.now() - started);
+}
+
+function getPhaseAtElapsed(snap: Snap, elapsedMs: number): Phase {
+  if (snap.status !== "RUNNING" || !snap.participant) return "done";
+  if (snap.isPaused) return "childhood";
+
+  const childhoodEnd = snap.childhoodDuration;
+  const smokeEnd = childhoodEnd + snap.smokeDuration;
+  const adultEnd = smokeEnd + snap.adultDuration;
+  const nameEnd = adultEnd + snap.nameAnimationDuration;
+
+  if (elapsedMs < childhoodEnd) return "childhood";
+  if (elapsedMs < smokeEnd) return "smoke";
+  if (elapsedMs < adultEnd) return "adult";
+  if (elapsedMs < nameEnd) return "name";
+  return "done";
+}
+
 export default function Projector({ token }: { token: string }) {
   const [snap, setSnap] = useState<Snap | null>(null);
   const [phase, setPhase] = useState<Phase>("childhood");
   const [live, setLive] = useState(false);
   const wasPaused = useRef(false);
+  const activeSequence = useRef<number | null>(null);
 
+  /* Real-time feed when available. */
   useEffect(() => {
     const es = new EventSource(`/api/presentation/stream?token=${token}`);
     es.onopen = () => setLive(true);
     es.onmessage = (e) => {
       try {
-        setSnap(JSON.parse(e.data));
+        const next = JSON.parse(e.data) as Snap;
+        setSnap(next);
         setLive(true);
       } catch {
         /* noop */
@@ -63,17 +89,31 @@ export default function Projector({ token }: { token: string }) {
     return () => es.close();
   }, [token]);
 
+  /* Fast durable polling keeps the projector synchronized even when the
+     realtime connection is routed to a different serverless instance. */
   useEffect(() => {
-    const poll = setInterval(async () => {
+    let cancelled = false;
+
+    const refresh = async () => {
       try {
-        const r = await fetch(`/api/presentation/current?token=${token}`);
+        const r = await fetch(`/api/presentation/current?token=${token}`, {
+          cache: "no-store",
+        });
         const j = await r.json();
-        if (j.ok) setSnap(j.state);
+        if (!cancelled && j.ok) {
+          setSnap(j.state as Snap);
+        }
       } catch {
-        /* noop */
+        /* EventSource remains the primary channel when available. */
       }
-    }, 7000);
-    return () => clearInterval(poll);
+    };
+
+    void refresh();
+    const poll = window.setInterval(() => void refresh(), 800);
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+    };
   }, [token]);
 
   /* Keyboard controller for the projector. */
@@ -125,39 +165,29 @@ export default function Projector({ token }: { token: string }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [snap?.isPaused]);
 
-  const seq = snap?.sequenceVersion;
-  const status = snap?.status;
-  const pid = snap?.participant?.id;
+  /* Server-authoritative animation clock. This is what makes a projector
+     refresh, reconnect, or load mid-show at the same point in the sequence. */
+  useEffect(() => {
+    if (!snap || snap.status !== "RUNNING" || !snap.participant) {
+      setPhase("done");
+      activeSequence.current = null;
+      return;
+    }
+
+    if (activeSequence.current !== snap.sequenceVersion) {
+      activeSequence.current = snap.sequenceVersion;
+    }
+
+    const tick = () => {
+      setPhase(getPhaseAtElapsed(snap, getServerElapsedMs(snap.phaseStartedAt)));
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 120);
+    return () => window.clearInterval(timer);
+  }, [snap]);
+
   const showAdult = phase === "adult" || phase === "name" || phase === "done";
-
-  // New participant => hard reset to childhood before smoke.
-  useEffect(() => {
-    if (!snap || status !== "RUNNING" || !snap.participant || snap.isPaused) return;
-    setPhase("childhood");
-    const t = setTimeout(() => setPhase("smoke"), snap.childhoodDuration);
-    return () => clearTimeout(t);
-  }, [seq, pid, status, snap?.isPaused, snap?.childhoodDuration]);
-
-  useEffect(() => {
-    if (!snap) return;
-    if (phase === "adult") {
-      const t = setTimeout(() => setPhase("name"), snap.adultDuration);
-      return () => clearTimeout(t);
-    }
-    if (phase === "name") {
-      const t = setTimeout(() => setPhase("done"), snap.nameAnimationDuration);
-      return () => clearTimeout(t);
-    }
-  }, [phase, snap]);
-
-  useEffect(() => {
-    const paused = !!snap?.isPaused;
-    if (paused && !wasPaused.current) {
-      setPhase((ph) => (ph === "smoke" ? "childhood" : ph));
-    }
-    wasPaused.current = paused;
-  }, [snap?.isPaused]);
-
   const idle = !snap || snap.status === "IDLE";
   const finished = snap?.status === "FINISHED";
 
@@ -168,7 +198,6 @@ export default function Projector({ token }: { token: string }) {
         <div className="absolute bottom-[-30%] right-1/2 h-[50vh] w-[80vw] translate-x-1/2 rounded-[100%] bg-[radial-gradient(ellipse_at_center,rgba(90,60,160,0.12),transparent_65%)] blur-3xl" />
       </div>
 
-      {/* Next graduate preview: image and name only. */}
       {!idle && !finished && snap?.nextParticipant && (
         <aside
           key={`next-${snap.nextParticipant.id}-${snap.sequenceVersion}`}
@@ -257,7 +286,7 @@ export default function Projector({ token }: { token: string }) {
                     key={`childhood-${snap.sequenceVersion}-${snap.participant.id}`}
                     src={snap.participant.childhoodImageUrl}
                     alt=""
-                    className={`photo-old absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out ${showAdult ? "opacity-0" : "opacity-100"}`}
+                    className={`photo-old absolute inset-0 h-full w-full object-cover ${showAdult ? "opacity-0" : "opacity-100"}`}
                   />
                 )}
                 {snap.participant.graduationImageUrl && (
@@ -266,7 +295,7 @@ export default function Projector({ token }: { token: string }) {
                     key={`adult-${snap.sequenceVersion}-${snap.participant.id}`}
                     src={snap.participant.graduationImageUrl}
                     alt=""
-                    className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out ${showAdult ? "opacity-100" : "opacity-0"}`}
+                    className={`absolute inset-0 h-full w-full object-cover ${showAdult ? "opacity-100" : "opacity-0"}`}
                   />
                 )}
                 <div className="pointer-events-none absolute inset-0 z-10 shadow-[inset_0_0_80px_20px_rgba(0,0,0,0.55)]" />
@@ -274,8 +303,8 @@ export default function Projector({ token }: { token: string }) {
                   <SmokeCanvas
                     key={`smoke-${snap.sequenceVersion}`}
                     durationMs={snap.smokeDuration}
-                    onMidpoint={() => setPhase("adult")}
-                    onDone={() => setPhase("adult")}
+                    onMidpoint={() => undefined}
+                    onDone={() => undefined}
                   />
                 )}
               </div>
