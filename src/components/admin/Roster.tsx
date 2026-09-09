@@ -176,7 +176,7 @@ export default function Roster({ groups, participants, drafts, draftChange, move
                     <span className="flex min-w-0 items-center gap-2"><span className="truncate font-display text-lg font-bold text-ivory">{p.fullName}</span>{hasDraft(p.id) && <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-2 py-0.5 text-[9px] font-black text-amber-300">مسودة</span>}</span>
                     <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-ivory/40"><span>{timeFmt.format(new Date(p.submittedAt))}</span><span>•</span><span>{p.skipped ? "متخطَّى من العرض" : "داخل العرض"}</span><span className={`rounded-full border px-2 py-0.5 ${chip.cls}`}>{chip.label}</span></span>
                   </span>
-                  <span className="hidden shrink-0 items-center gap-1 sm:flex" onClick={(e) => e.stopPropagation()}>
+                  <span className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
                     <IconBtn title="تقديم الترتيب" onClick={() => moveParticipant(p, -1)} disabled={isFirst}><ArrowUp className="size-3.5" /></IconBtn>
                     <IconBtn title="تأخير الترتيب" onClick={() => moveParticipant(p, 1)} disabled={isLast}><ArrowDown className="size-3.5" /></IconBtn>
                   </span>
