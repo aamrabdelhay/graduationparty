@@ -163,8 +163,6 @@ export default function HomePage() {
             </span>
             <h1 className="font-display text-5xl leading-[1.15] font-bold text-ivory sm:text-7xl lg:text-8xl">
               أخيراً
-              <br />
-              <span className="gold-text animate-shimmer">لبسنا القبعة</span>
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-sm leading-relaxed text-ivory/55 sm:text-base">
               ارفع صورتك وأنت صغير وصورتك دلوقتي عشان تظهر بالاسم على الشاشة في الحفلة
