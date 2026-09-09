@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
+import HomeTextOverrides from "@/components/HomeTextOverrides";
 
 export const metadata: Metadata = {
   title: "حفل التخرج — سجّل لحظتك",
@@ -27,7 +28,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           rel="stylesheet"
         />
       </head>
-      <body className="font-body antialiased">{children}</body>
+      <body className="font-body antialiased">
+        {children}
+        <HomeTextOverrides />
+      </body>
     </html>
   );
 }
