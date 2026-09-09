@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
 import { getSessionFromCookies } from "@/lib/auth";
-import { applyAction, PresentationAction, publicSnapshot } from "@/lib/presentation";
+import {
+  applyAction,
+  PresentationAction,
+  publicSnapshot,
+} from "@/lib/presentation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +24,36 @@ const ACTIONS: PresentationAction[] = [
   "stop",
 ];
 
+type DatabaseErrorLike = Error & {
+  code?: string;
+  detail?: string;
+  hint?: string;
+  constraint?: string;
+  table?: string;
+  column?: string;
+  schema?: string;
+  routine?: string;
+  severity?: string;
+  where?: string;
+};
+
+function serializeError(error: unknown) {
+  const e = error as DatabaseErrorLike;
+  return {
+    message: e instanceof Error ? e.message : String(e),
+    code: e.code ?? null,
+    detail: e.detail ?? null,
+    hint: e.hint ?? null,
+    constraint: e.constraint ?? null,
+    table: e.table ?? null,
+    column: e.column ?? null,
+    schema: e.schema ?? null,
+    routine: e.routine ?? null,
+    severity: e.severity ?? null,
+    where: e.where ?? null,
+  };
+}
+
 export async function GET() {
   const session = await getSessionFromCookies();
   if (!session) return Response.json({ ok: false }, { status: 401 });
@@ -36,14 +70,24 @@ export async function POST(req: NextRequest) {
       [key: string]: unknown;
     };
     if (!body.action || !ACTIONS.includes(body.action)) {
-      return Response.json({ ok: false, error: "أمر غير معروف" }, { status: 400 });
+      return Response.json(
+        { ok: false, error: "أمر غير معروف" },
+        { status: 400 },
+      );
     }
+
     const { action, ...payload } = body;
     const snapshot = await applyAction(action, payload);
     return Response.json({ ok: true, state: snapshot });
-  } catch (e) {
+  } catch (error) {
+    const details = serializeError(error);
+    console.error("Presentation action failed", details);
     return Response.json(
-      { ok: false, error: e instanceof Error ? e.message : "خطأ" },
+      {
+        ok: false,
+        error: details.message,
+        database: details,
+      },
       { status: 400 },
     );
   }
