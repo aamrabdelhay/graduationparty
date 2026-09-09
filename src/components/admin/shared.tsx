@@ -72,6 +72,7 @@ export interface PresState {
   adultDuration: number;
   nameAnimationDuration: number;
   participant: PresParticipant | null;
+  nextParticipant: PresParticipant | null;
 }
 
 export const timeFmt = new Intl.DateTimeFormat("ar-EG", {
