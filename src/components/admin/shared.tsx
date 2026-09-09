@@ -3,8 +3,6 @@
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 
-/* ------------------------------ Types ------------------------------ */
-
 export interface AdminParticipant {
   id: string;
   groupId: string | null;
@@ -76,8 +74,6 @@ export interface PresState {
   participant: PresParticipant | null;
 }
 
-/* ------------------------------ Helpers ------------------------------ */
-
 export const timeFmt = new Intl.DateTimeFormat("ar-EG", {
   hour: "2-digit",
   minute: "2-digit",
@@ -114,8 +110,6 @@ export function statusChip(status: AdminParticipant["gradImageStatus"]) {
   }
 }
 
-/* ------------------------------- Modal ------------------------------- */
-
 export function Modal({
   open,
   onClose,
@@ -132,20 +126,11 @@ export function Modal({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-night-950/80 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div
-        className={`card-lux lux-frame relative max-h-[88dvh] w-full animate-fade-up overflow-y-auto rounded-3xl p-6 ${wide ? "max-w-3xl" : "max-w-lg"}`}
-      >
+      <div className="absolute inset-0 bg-night-950/80 backdrop-blur-sm" onClick={onClose} />
+      <div className={`card-lux lux-frame relative max-h-[88dvh] w-full animate-fade-up overflow-y-auto rounded-3xl p-6 ${wide ? "max-w-3xl" : "max-w-lg"}`}>
         <div className="mb-5 flex items-center justify-between">
           <h3 className="font-display text-xl font-bold text-gold-200">{title}</h3>
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-white/10 p-2 text-ivory/50 hover:border-gold-500/40 hover:text-gold-300"
-            aria-label="إغلاق"
-          >
+          <button onClick={onClose} className="rounded-xl border border-white/10 p-2 text-ivory/50 hover:border-gold-500/40 hover:text-gold-300" aria-label="إغلاق">
             <X className="size-4" />
           </button>
         </div>
@@ -155,20 +140,13 @@ export function Modal({
   );
 }
 
-export function Thumb({ url, alt }: { url?: string | null; alt: string }) {
+export function Thumb({ url, alt, className }: { url?: string | null; alt: string; className?: string }) {
+  const imageClassName = className ?? "h-16 w-14 rounded-lg border border-gold-500/25 object-cover";
   if (!url) {
-    return (
-      <span className="flex h-16 w-14 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-[9px] text-ivory/30">
-        لا توجد
-      </span>
-    );
+    return <span className={`${imageClassName} flex items-center justify-center bg-white/5 text-[9px] text-ivory/30`}>لا توجد</span>;
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={url}
-      alt={alt}
-      className="h-16 w-14 rounded-lg border border-gold-500/25 object-cover"
-    />
+    <img src={url} alt={alt} className={imageClassName} />
   );
 }
