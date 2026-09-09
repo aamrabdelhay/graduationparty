@@ -163,6 +163,59 @@ const STATEMENTS = [
   `ALTER TABLE presentation_state ADD COLUMN IF NOT EXISTS name_animation_duration integer NOT NULL DEFAULT 1800;`,
   `ALTER TABLE presentation_state ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();`,
 
+  `UPDATE presentation_state
+   SET current_participant_id = NULL
+   WHERE current_participant_id IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1 FROM participants p WHERE p.id = presentation_state.current_participant_id
+     );`,
+  `UPDATE presentation_state
+   SET next_participant_id = NULL
+   WHERE next_participant_id IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1 FROM participants p WHERE p.id = presentation_state.next_participant_id
+     );`,
+  `DO $$
+   DECLARE c record;
+   BEGIN
+     FOR c IN
+       SELECT DISTINCT con.conname
+       FROM pg_constraint con
+       JOIN pg_attribute att
+         ON att.attrelid = con.conrelid
+        AND att.attnum = ANY(con.conkey)
+       WHERE con.conrelid = 'presentation_state'::regclass
+         AND con.contype = 'f'
+         AND att.attname IN ('current_participant_id', 'next_participant_id')
+     LOOP
+       EXECUTE format('ALTER TABLE presentation_state DROP CONSTRAINT %I', c.conname);
+     END LOOP;
+
+     IF NOT EXISTS (
+       SELECT 1
+       FROM pg_constraint
+       WHERE conname = 'presentation_state_current_participant_id_participants_id_fk'
+         AND conrelid = 'presentation_state'::regclass
+     ) THEN
+       ALTER TABLE presentation_state
+         ADD CONSTRAINT presentation_state_current_participant_id_participants_id_fk
+         FOREIGN KEY (current_participant_id) REFERENCES participants(id)
+         ON DELETE SET NULL;
+     END IF;
+
+     IF NOT EXISTS (
+       SELECT 1
+       FROM pg_constraint
+       WHERE conname = 'presentation_state_next_participant_id_participants_id_fk'
+         AND conrelid = 'presentation_state'::regclass
+     ) THEN
+       ALTER TABLE presentation_state
+         ADD CONSTRAINT presentation_state_next_participant_id_participants_id_fk
+         FOREIGN KEY (next_participant_id) REFERENCES participants(id)
+         ON DELETE SET NULL;
+     END IF;
+   END $$;`,
+
   `CREATE TABLE IF NOT EXISTS display_tokens (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     token text NOT NULL UNIQUE,
