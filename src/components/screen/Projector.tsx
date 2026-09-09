@@ -28,7 +28,6 @@ type Phase = "childhood" | "smoke" | "adult" | "name" | "done";
 export default function Projector({ token }: { token: string }) {
   const [snap, setSnap] = useState<Snap | null>(null);
   const [phase, setPhase] = useState<Phase>("childhood");
-  const [showAdult, setShowAdult] = useState(false);
   const [live, setLive] = useState(false);
   const wasPaused = useRef(false);
 
@@ -44,7 +43,7 @@ export default function Projector({ token }: { token: string }) {
         /* noop */
       }
     };
-    es.onerror = () => setLive(false); // EventSource auto-reconnects
+    es.onerror = () => setLive(false);
     return () => es.close();
   }, [token]);
 
@@ -66,15 +65,18 @@ export default function Projector({ token }: { token: string }) {
   const seq = snap?.sequenceVersion;
   const status = snap?.status;
   const pid = snap?.participant?.id;
+  const showAdult =
+    phase === "adult" || phase === "name" || phase === "done";
 
+  // A new presentation sequence always starts with the new participant's
+  // childhood image. The sequence/pid dependencies intentionally hard-reset
+  // the phase before the smoke animation can reveal the adult image.
   useEffect(() => {
     if (!snap || status !== "RUNNING" || !snap.participant || snap.isPaused) return;
-    setShowAdult(false);
     setPhase("childhood");
     const t = setTimeout(() => setPhase("smoke"), snap.childhoodDuration);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seq, pid, status]);
+  }, [seq, pid, status, snap?.isPaused, snap?.childhoodDuration]);
 
   useEffect(() => {
     if (!snap) return;
@@ -88,17 +90,13 @@ export default function Projector({ token }: { token: string }) {
     }
   }, [phase, snap]);
 
-  /* Pause: freeze the stage lights exactly where they are (no spoilers) */
+  /* Pause: never reveal the adult image as a side effect of pausing smoke. */
   useEffect(() => {
     const paused = !!snap?.isPaused;
     if (paused && !wasPaused.current) {
-      setPhase((ph) => {
-        if (showAdult) return "done";
-        return ph === "smoke" ? "childhood" : ph;
-      });
+      setPhase((ph) => (ph === "smoke" ? "childhood" : ph));
     }
     wasPaused.current = paused;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snap?.isPaused]);
 
   const idle = !snap || snap.status === "IDLE";
@@ -162,7 +160,10 @@ export default function Projector({ token }: { token: string }) {
 
       {/* ------------------------------ THE SHOW ------------------------------ */}
       {!idle && !finished && snap?.participant && (
-        <div key={snap.sequenceVersion} className="relative z-10 flex h-full flex-col items-center justify-center gap-5 px-4">
+        <div
+          key={snap.sequenceVersion}
+          className="relative z-10 flex h-full flex-col items-center justify-center gap-5 px-4"
+        >
           {/* Ornamental graduation frame */}
           <div className="relative animate-fade-up">
             {/* Emblem on top */}
@@ -174,13 +175,15 @@ export default function Projector({ token }: { token: string }) {
 
             <div className="lux-frame lux-corner relative overflow-hidden rounded-[28px] p-2.5">
               <div className="relative h-[58dvh] w-[min(82vw,46dvh)] overflow-hidden rounded-2xl bg-night-900">
-                {/* Childhood photo */}
+                {/* Keyed per sequence so a previous participant's image transition
+                    can never leak into the next participant. */}
                 {snap.participant.childhoodImageUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
+                    key={`childhood-${snap.sequenceVersion}`}
                     src={snap.participant.childhoodImageUrl}
                     alt=""
-                    className={`photo-old absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
+                    className={`photo-old absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out ${
                       showAdult ? "opacity-0" : "opacity-100"
                     }`}
                   />
@@ -189,9 +192,10 @@ export default function Projector({ token }: { token: string }) {
                 {snap.participant.graduationImageUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
+                    key={`adult-${snap.sequenceVersion}`}
                     src={snap.participant.graduationImageUrl}
                     alt=""
-                    className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
+                    className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out ${
                       showAdult ? "opacity-100" : "opacity-0"
                     }`}
                   />
@@ -203,7 +207,7 @@ export default function Projector({ token }: { token: string }) {
                   <SmokeCanvas
                     key={`smoke-${snap.sequenceVersion}`}
                     durationMs={snap.smokeDuration}
-                    onMidpoint={() => setShowAdult(true)}
+                    onMidpoint={() => setPhase("adult")}
                     onDone={() => setPhase("adult")}
                   />
                 )}
