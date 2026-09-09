@@ -22,15 +22,14 @@ export default function HomeTextOverrides() {
             }
           });
         }
-        if (text.includes(badgeFrom)) {
-          element.textContent = badgeTo;
-        }
-        if (text.includes(descriptionFrom) || text.includes("الذكاء الاصطناعي هيكسّبك قبعة")) {
+        if (text.includes(badgeFrom)) element.textContent = badgeTo;
+        if (
+          text.includes(descriptionFrom) ||
+          text.includes("الذكاء الاصطناعي هيكسّبك قبعة")
+        ) {
           element.textContent = descriptionTo;
         }
-        if (text === subtitle) {
-          element.remove();
-        }
+        if (text === subtitle) element.remove();
       });
     };
 
