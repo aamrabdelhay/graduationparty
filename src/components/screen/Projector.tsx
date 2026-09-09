@@ -69,10 +69,8 @@ export default function Projector({ token }: { token: string }) {
   const [snap, setSnap] = useState<Snap | null>(null);
   const [phase, setPhase] = useState<Phase>("childhood");
   const [live, setLive] = useState(false);
-  const wasPaused = useRef(false);
   const activeSequence = useRef<number | null>(null);
 
-  /* Real-time feed when available. */
   useEffect(() => {
     const es = new EventSource(`/api/presentation/stream?token=${token}`);
     es.onopen = () => setLive(true);
@@ -89,8 +87,6 @@ export default function Projector({ token }: { token: string }) {
     return () => es.close();
   }, [token]);
 
-  /* Fast durable polling keeps the projector synchronized even when the
-     realtime connection is routed to a different serverless instance. */
   useEffect(() => {
     let cancelled = false;
 
@@ -116,7 +112,6 @@ export default function Projector({ token }: { token: string }) {
     };
   }, [token]);
 
-  /* Keyboard controller for the projector. */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -165,8 +160,6 @@ export default function Projector({ token }: { token: string }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [snap?.isPaused]);
 
-  /* Server-authoritative animation clock. This is what makes a projector
-     refresh, reconnect, or load mid-show at the same point in the sequence. */
   useEffect(() => {
     if (!snap || snap.status !== "RUNNING" || !snap.participant) {
       setPhase("done");
@@ -201,27 +194,37 @@ export default function Projector({ token }: { token: string }) {
       {!idle && !finished && snap?.nextParticipant && (
         <aside
           key={`next-${snap.nextParticipant.id}-${snap.sequenceVersion}`}
-          className="absolute left-5 top-1/2 z-30 hidden w-28 -translate-y-1/2 md:block"
+          className="absolute bottom-5 left-5 z-30 w-[min(260px,34vw)]"
           aria-label="الخريج التالي"
         >
-          <div className="rounded-2xl border border-gold-500/20 bg-night-950/75 p-2.5 shadow-[0_0_30px_-12px_rgba(212,175,55,0.35)] backdrop-blur-sm">
-            <div className="overflow-hidden rounded-xl bg-night-900">
-              {snap.nextParticipant.childhoodImageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={snap.nextParticipant.childhoodImageUrl}
-                  alt=""
-                  className="h-24 w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-24 items-center justify-center text-gold-500/40">
-                  <GraduationCap className="size-8" />
-                </div>
-              )}
+          <div className="rounded-2xl border border-gold-500/25 bg-night-950/82 p-3 shadow-[0_0_34px_-12px_rgba(212,175,55,0.4)] backdrop-blur-md">
+            <div className="mb-2 text-[10px] font-black tracking-wide text-gold-300/80">
+              التالي
             </div>
-            <p className="mt-2 truncate text-center font-display text-xs font-bold text-gold-200">
-              {snap.nextParticipant.name}
-            </p>
+            <div className="flex items-center gap-3">
+              <div className="size-16 shrink-0 overflow-hidden rounded-xl border border-gold-500/25 bg-night-900">
+                {snap.nextParticipant.childhoodImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={snap.nextParticipant.childhoodImageUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-gold-500/40">
+                    <GraduationCap className="size-7" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate font-display text-base font-bold text-gold-100 sm:text-lg">
+                  {snap.nextParticipant.name}
+                </p>
+                <p className="mt-0.5 text-[10px] text-ivory/45 sm:text-[11px]">
+                  استعد — دورك بعد الخريج الحالي
+                </p>
+              </div>
+            </div>
           </div>
         </aside>
       )}
@@ -286,7 +289,7 @@ export default function Projector({ token }: { token: string }) {
                     key={`childhood-${snap.sequenceVersion}-${snap.participant.id}`}
                     src={snap.participant.childhoodImageUrl}
                     alt=""
-                    className={`photo-old absolute inset-0 h-full w-full object-cover ${showAdult ? "opacity-0" : "opacity-100"}`}
+                    className={`photo-old absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-in-out ${showAdult ? "opacity-0" : "opacity-100"}`}
                   />
                 )}
                 {snap.participant.graduationImageUrl && (
@@ -295,7 +298,7 @@ export default function Projector({ token }: { token: string }) {
                     key={`adult-${snap.sequenceVersion}-${snap.participant.id}`}
                     src={snap.participant.graduationImageUrl}
                     alt=""
-                    className={`absolute inset-0 h-full w-full object-cover ${showAdult ? "opacity-100" : "opacity-0"}`}
+                    className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-in-out ${showAdult ? "opacity-100" : "opacity-0"}`}
                   />
                 )}
                 <div className="pointer-events-none absolute inset-0 z-10 shadow-[inset_0_0_80px_20px_rgba(0,0,0,0.55)]" />
